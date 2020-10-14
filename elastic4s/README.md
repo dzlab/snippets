@@ -1,3 +1,6 @@
+# Elasticsearch Alpakka
+This simple project is used in this blog post - [link](https://dzlab.github.io/ml/2020/10/13/elasticsearch-alpakka/)
+
 Start Elasticsearch
 ```
 $ cd $ELASTICSEARCH_HOME
