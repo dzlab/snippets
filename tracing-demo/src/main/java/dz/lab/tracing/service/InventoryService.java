@@ -14,8 +14,8 @@ public class InventoryService {
         this.tracer = tracer;
     }
 
-    public void createOrder(Span parentSpan) {
-        Span span = tracer.buildSpan("InventoryService").asChildOf(parentSpan).start();
+    public void createOrder() {
+        Span span = tracer.buildSpan("InventoryService").start();
         try {
             Thread.sleep(ThreadLocalRandom.current().nextInt(100, 1000));
         } catch (InterruptedException e) {}

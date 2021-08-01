@@ -1,6 +1,7 @@
 package dz.lab.tracing.service;
 
 import io.jaegertracing.internal.JaegerTracer;
+import io.opentracing.Scope;
 import io.opentracing.Span;
 import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.stereotype.Service;
@@ -16,9 +17,11 @@ public class DeliveryService {
         this.logisticsService = logisticsService;
     }
 
-    public void arrangeDelivery(Span parentSpan) {
-        Span span = tracer.buildSpan("DeliveryService").asChildOf(parentSpan).start();
-        logisticsService.transport(span);
+    public void arrangeDelivery() {
+        Span parentSpan = tracer.scopeManager().activeSpan();
+        Span span = tracer.buildSpan("DeliveryService").start();
+		Scope scope = tracer.scopeManager().activate(span);
+        logisticsService.transport();
         try {
             Thread.sleep(ThreadLocalRandom.current().nextInt(100, 1000));
         } catch (InterruptedException e) {}

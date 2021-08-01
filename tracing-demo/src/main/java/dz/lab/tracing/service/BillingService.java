@@ -14,8 +14,9 @@ public class BillingService {
         this.tracer = tracer;
     }
 
-    public void payment(Span parentSpan) {
-        Span span = tracer.buildSpan("BillingService").asChildOf(parentSpan).start();
+    public void payment() {
+        // Current active span will be the parent of the newly created span
+        Span span = tracer.buildSpan("BillingService").start();
         try {
             Thread.sleep(ThreadLocalRandom.current().nextInt(100, 1000));
         } catch (InterruptedException e) {}

@@ -14,8 +14,8 @@ class LogisticsService {
         this.tracer = tracer;
     }
 
-    public void transport(Span parentSpan) {
-        Span span = tracer.buildSpan("LogisticsService").asChildOf(parentSpan).start();
+    public void transport() {
+        Span span = tracer.buildSpan("LogisticsService").start();
         try {
             Thread.sleep(ThreadLocalRandom.current().nextInt(100, 1000));
         } catch (InterruptedException e) {}
