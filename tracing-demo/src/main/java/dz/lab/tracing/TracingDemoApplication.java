@@ -19,18 +19,6 @@ public class TracingDemoApplication {
 
 	@Bean
 	public static JaegerTracer getTracer() {
-		String service = "eshop-rest-api";
-        SamplerConfiguration samplerConfig = SamplerConfiguration.fromEnv()
-                .withType(ConstSampler.TYPE)
-                .withParam(1);
-
-        ReporterConfiguration reporterConfig = ReporterConfiguration.fromEnv()
-                .withLogSpans(true);
-
-        Configuration config = new Configuration(service)
-                .withSampler(samplerConfig)
-                .withReporter(reporterConfig);
-
-        return config.getTracer();
+        return Configuration.fromEnv("EShop").getTracer();
 	}
 }
