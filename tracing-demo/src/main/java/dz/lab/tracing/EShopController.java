@@ -1,6 +1,6 @@
 package dz.lab.tracing;
 
-import dz.lab.tracing.service.*;
+import dz.lab.tracing.utils.*;
 import io.jaegertracing.internal.JaegerTracer;
 import io.opentracing.Scope;
 import io.opentracing.Span;
@@ -12,20 +12,8 @@ public class EShopController {
 
     private final JaegerTracer tracer;
 
-	private final BillingService billingService;
-	private final DeliveryService deliveryService;
-	private final InventoryService inventoryService;
-
-    public EShopController(
-		JaegerTracer tracer,
-		BillingService billingService,
-		DeliveryService deliveryService,
-		InventoryService inventoryService
-		) {
+    public EShopController(JaegerTracer tracer) {
         this.tracer = tracer;
-        this.billingService = billingService;
-        this.deliveryService = deliveryService;
-        this.inventoryService = inventoryService;
     }
 
 	@GetMapping("/checkout")
@@ -33,9 +21,9 @@ public class EShopController {
 		Span span = tracer.buildSpan("checkout").start();
 		// set the created span as the active span for the current context(thread) using ScopeManager.active method before calling subsequent functions.
 		Scope scope = tracer.scopeManager().activate(span);
-		inventoryService.createOrder();
-		billingService.payment();
-		deliveryService.arrangeDelivery();
+		HttpUtils.doGet("http://localhost:8080/createOrder");
+		HttpUtils.doGet("http://localhost:8080/payment");
+		HttpUtils.doGet("http://localhost:8080/arrangeDelivery");
 		String response = "You have successfully checked out your shopping cart.";
 		span.setTag("http.status_code", 200);
 		span.finish();

@@ -3,9 +3,10 @@ package dz.lab.tracing.service;
 import io.jaegertracing.internal.JaegerTracer;
 import io.opentracing.Span;
 import java.util.concurrent.ThreadLocalRandom;
-import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-@Service("is")
+@RestController
 public class InventoryService {
 
     private final JaegerTracer tracer;
@@ -14,6 +15,7 @@ public class InventoryService {
         this.tracer = tracer;
     }
 
+	@GetMapping("/createOrder")
     public void createOrder() {
         Span span = tracer.buildSpan("InventoryService").start();
         try {

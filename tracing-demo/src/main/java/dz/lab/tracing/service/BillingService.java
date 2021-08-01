@@ -3,9 +3,10 @@ package dz.lab.tracing.service;
 import io.jaegertracing.internal.JaegerTracer;
 import io.opentracing.Span;
 import java.util.concurrent.ThreadLocalRandom;
-import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-@Service("bs")
+@RestController
 public class BillingService {
 
     private final JaegerTracer tracer;
@@ -14,6 +15,7 @@ public class BillingService {
         this.tracer = tracer;
     }
 
+	@GetMapping("/payment")
     public void payment() {
         // Current active span will be the parent of the newly created span
         Span span = tracer.buildSpan("BillingService").start();

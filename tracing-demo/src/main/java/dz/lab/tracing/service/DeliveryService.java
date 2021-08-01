@@ -1,27 +1,28 @@
 package dz.lab.tracing.service;
 
+import dz.lab.tracing.utils.*;
 import io.jaegertracing.internal.JaegerTracer;
 import io.opentracing.Scope;
 import io.opentracing.Span;
 import java.util.concurrent.ThreadLocalRandom;
-import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-@Service("ds")
+@RestController
 public class DeliveryService {
 
     private final JaegerTracer tracer;
-	private final LogisticsService logisticsService;
 
-    public DeliveryService(JaegerTracer tracer, LogisticsService logisticsService) {
+    public DeliveryService(JaegerTracer tracer) {
         this.tracer = tracer;
-        this.logisticsService = logisticsService;
     }
 
+	@GetMapping("/arrangeDelivery")
     public void arrangeDelivery() {
         Span parentSpan = tracer.scopeManager().activeSpan();
         Span span = tracer.buildSpan("DeliveryService").start();
 		Scope scope = tracer.scopeManager().activate(span);
-        logisticsService.transport();
+        HttpUtils.doGet("http://localhost:8080/transport");
         try {
             Thread.sleep(ThreadLocalRandom.current().nextInt(100, 1000));
         } catch (InterruptedException e) {}
