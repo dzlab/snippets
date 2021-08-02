@@ -21,9 +21,10 @@ public class EShopController {
 		Span span = tracer.buildSpan("checkout").start();
 		// set the created span as the active span for the current context(thread) using ScopeManager.active method before calling subsequent functions.
 		Scope scope = tracer.scopeManager().activate(span);
-		HttpUtils.doGet("http://localhost:8080/createOrder");
-		HttpUtils.doGet("http://localhost:8080/payment");
-		HttpUtils.doGet("http://localhost:8080/arrangeDelivery");
+		HttpClient client = new HttpClient(tracer, span);
+		client.doGet("http://localhost:8080/createOrder");
+		client.doGet("http://localhost:8080/payment");
+		client.doGet("http://localhost:8080/arrangeDelivery");
 		String response = "You have successfully checked out your shopping cart.";
 		span.setTag("http.status_code", 200);
 		span.finish();

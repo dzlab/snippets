@@ -32,5 +32,5 @@ $ docker run -d --name jaeger \
 Navigate to http://localhost:16686 to access the Jaeger UI.
 
 Resources:
-- 
+- Java OpenTracing Tutorial by [@yurishkuro](https://github.com/yurishkuro) - [link](https://github.com/yurishkuro/opentracing-tutorial/tree/master/java)
 - A minimalistic guide to distributed tracing with OpenTracing and Jaeger - [link](https://shekhargulati.com/2019/04/08/a-minimalistic-guide-to-distributed-tracing-with-opentracing-and-jaeger/)

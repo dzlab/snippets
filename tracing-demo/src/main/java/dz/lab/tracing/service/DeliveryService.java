@@ -4,9 +4,13 @@ import dz.lab.tracing.utils.*;
 import io.jaegertracing.internal.JaegerTracer;
 import io.opentracing.Scope;
 import io.opentracing.Span;
+import io.opentracing.SpanContext;
+import io.opentracing.propagation.Format;
 import java.util.concurrent.ThreadLocalRandom;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 @RestController
 public class DeliveryService {
@@ -18,11 +22,13 @@ public class DeliveryService {
     }
 
 	@GetMapping("/arrangeDelivery")
-    public void arrangeDelivery() {
-        Span parentSpan = tracer.scopeManager().activeSpan();
-        Span span = tracer.buildSpan("DeliveryService").start();
+    public void arrangeDelivery(@RequestHeader HttpHeaders headers) {
+        SpanContext parent = tracer.extract(Format.Builtin.HTTP_HEADERS, new HttpHeadersCarrier(headers));
+        Span span = tracer.buildSpan("arrangeDelivery").asChildOf(parent).start();
+
 		Scope scope = tracer.scopeManager().activate(span);
-        HttpUtils.doGet("http://localhost:8080/transport");
+        HttpClient client = new HttpClient(tracer, span);
+		client.doGet("http://localhost:8080/transport");
         try {
             Thread.sleep(ThreadLocalRandom.current().nextInt(100, 1000));
         } catch (InterruptedException e) {}
