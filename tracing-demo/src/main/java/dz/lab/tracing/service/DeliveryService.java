@@ -12,9 +12,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestHeader;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @RestController
 public class DeliveryService {
 
+    Logger logger = LoggerFactory.getLogger(this.getClass());
     private final JaegerTracer tracer;
 
     public DeliveryService(JaegerTracer tracer) {
@@ -25,6 +29,8 @@ public class DeliveryService {
     public void arrangeDelivery(@RequestHeader HttpHeaders headers) {
         SpanContext parent = tracer.extract(Format.Builtin.HTTP_HEADERS, new HttpHeadersCarrier(headers));
         Span span = tracer.buildSpan("arrangeDelivery").asChildOf(parent).start();
+        String user = span.getBaggageItem(HttpHeaders.USER_AGENT);
+        logger.info("User is: '" + user + "'.");
 
 		Scope scope = tracer.scopeManager().activate(span);
         HttpClient client = new HttpClient(tracer, span);
