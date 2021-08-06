@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eshop
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eshop
+  template:
+    metadata:
+      labels:
+        app: eshop
+    spec:
+      containers:
+        - name: eshop
+          image: dzlabacr01.azurecr.io/dzlab/tracing-demo:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: JAEGER_ENDPOINT
+              value: "http://jaeger:14268/api/traces"
