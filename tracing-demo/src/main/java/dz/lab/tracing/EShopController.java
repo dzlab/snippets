@@ -24,21 +24,21 @@ public class EShopController {
 
 	@GetMapping("/checkout")
 	public String checkout(@RequestHeader HttpHeaders headers) {
-		String user = headers.get(HttpHeaders.USER_AGENT).get(0);
-        logger.info("User is: '" + user + "'.");
+		// String user = headers.get(HttpHeaders.USER_AGENT).get(0);
+        // logger.info("User is: '" + user + "'.");
 		// Span span = tracer.buildSpan("checkout").start();
 		// // set the created span as the active span for the current context(thread) using ScopeManager.active method before calling subsequent functions.
 		// Scope scope = tracer.scopeManager().activate(span);
 		// span.setBaggageItem(HttpHeaders.USER_AGENT, user);
 		// HttpClient client = new HttpClient(tracer, span);
 		HttpClient client = new HttpClient(null, null);
-		client.doGet("http://inventory:8080/createOrder");
-		client.doGet("http://billing:8080/payment");
-		client.doGet("http://delivery:8080/arrangeDelivery");
+		HttpHeaders outHeaders = HttpClient.copyIstioHeaders(headers);
+		client.doGet("http://inventory:8080/createOrder", outHeaders);
+		client.doGet("http://billing:8080/payment", outHeaders);
+		client.doGet("http://delivery:8080/arrangeDelivery", outHeaders);
 		String response = "You have successfully checked out your shopping cart.";
 		// span.setTag("http.status_code", 200);
 		// span.finish();
 		return response;
 	}
-
 }

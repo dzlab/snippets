@@ -35,7 +35,8 @@ public class DeliveryService {
 		// Scope scope = tracer.scopeManager().activate(span);
         // HttpClient client = new HttpClient(tracer, span);
         HttpClient client = new HttpClient(null, null);
-		client.doGet("http://logistics:8080/transport");
+		HttpHeaders outHeaders = HttpClient.copyIstioHeaders(headers);
+		client.doGet("http://logistics:8080/transport", outHeaders);
         try {
             Thread.sleep(ThreadLocalRandom.current().nextInt(100, 1000));
         } catch (InterruptedException e) {}
