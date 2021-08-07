@@ -31,9 +31,9 @@ public class EShopController {
 		Scope scope = tracer.scopeManager().activate(span);
 		span.setBaggageItem(HttpHeaders.USER_AGENT, user);
 		HttpClient client = new HttpClient(tracer, span);
-		client.doGet("http://localhost:8080/createOrder");
-		client.doGet("http://localhost:8080/payment");
-		client.doGet("http://localhost:8080/arrangeDelivery");
+		client.doGet("http://inventory:8080/createOrder");
+		client.doGet("http://billing:8080/payment");
+		client.doGet("http://delivery:8080/arrangeDelivery");
 		String response = "You have successfully checked out your shopping cart.";
 		span.setTag("http.status_code", 200);
 		span.finish();

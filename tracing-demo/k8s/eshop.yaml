@@ -1,3 +1,83 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: eshop
+  labels:
+    app: eshop
+spec:
+  ports:
+    - port: 8080
+      name: http
+  selector:
+    app: eshop
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory
+  labels:
+    app: inventory
+spec:
+  ports:
+    - port: 8080
+      name: http
+  selector:
+    app: inventory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: billing
+  labels:
+    app: billing
+spec:
+  ports:
+    - port: 8080
+      name: http
+  selector:
+    app: billing
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: delivery
+  labels:
+    app: delivery
+spec:
+  ports:
+    - port: 8080
+      name: http
+  selector:
+    app: delivery
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logistics
+  labels:
+    app: logistics
+spec:
+  ports:
+    - port: 8080
+      name: http
+  selector:
+    app: logistics
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger
+  labels:
+    app: jaeger
+spec:
+  ports:
+    - port: 14268
+      name: http-collector
+    - port: 16686
+      name: http-ui
+  selector:
+    app: jaeger
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,3 +100,116 @@ spec:
           env:
             - name: JAEGER_ENDPOINT
               value: "http://jaeger:14268/api/traces"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventory
+  template:
+    metadata:
+      labels:
+        app: inventory
+    spec:
+      containers:
+        - name: inventory
+          image: dzlabacr01.azurecr.io/dzlab/tracing-demo:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: JAEGER_ENDPOINT
+              value: "http://jaeger:14268/api/traces"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: billing
+  template:
+    metadata:
+      labels:
+        app: billing
+    spec:
+      containers:
+        - name: billing
+          image: dzlabacr01.azurecr.io/dzlab/tracing-demo:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: JAEGER_ENDPOINT
+              value: "http://jaeger:14268/api/traces"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: delivery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: delivery
+  template:
+    metadata:
+      labels:
+        app: delivery
+    spec:
+      containers:
+        - name: delivery
+          image: dzlabacr01.azurecr.io/dzlab/tracing-demo:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: JAEGER_ENDPOINT
+              value: "http://jaeger:14268/api/traces"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logistics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logistics
+  template:
+    metadata:
+      labels:
+        app: logistics
+    spec:
+      containers:
+        - name: logistics
+          image: dzlabacr01.azurecr.io/dzlab/tracing-demo:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: JAEGER_ENDPOINT
+              value: "http://jaeger:14268/api/traces"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      containers:
+        - name: jaeger
+          image: dzlabacr01.azurecr.io/jaegertracing/all-in-one:1.6
+          ports:
+            - containerPort: 14268
+            - containerPort: 16686

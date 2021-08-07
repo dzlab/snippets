@@ -49,6 +49,8 @@ Push the image to the Container Registery
 $ docker build -t dzlab/tracing-demo .
 $ docker image tag dzlab/tracing-demo:latest dzlabacr01.azurecr.io/dzlab/tracing-demo:latest
 $ docker push dzlabacr01.azurecr.io/dzlab/tracing-demo:latest
+$ docker image tag jaegertracing/all-in-one:1.6 dzlabacr01.azurecr.io/jaegertracing/all-in-one:1.6
+$ docker push dzlabacr01.azurecr.io/jaegertracing/all-in-one:1.6
 ```
 
 Deploy the application
@@ -60,7 +62,22 @@ Check deployment was successfull
 ```
 $ kubectl get pods
 NAME                     READY   STATUS    RESTARTS   AGE
-eshop-59d84469f8-8kd54   1/1     Running   0          12s
+billing-78c7d6b646-r455k     1/1     Running   0          60s
+delivery-68ddb5dccb-vmvdp    1/1     Running   0          60s
+eshop-59d84469f8-mcxq5       1/1     Running   0          60s
+inventory-6cf44c6fcb-qgfkv   1/1     Running   0          60s
+jaeger-6855c88678-twld4      1/1     Running   0          9s
+logistics-b5c9c4d74-gtt7x    1/1     Running   0          60s
+```
+
+Establish connection from local machine to jaeger service
+```
+$ kubectl port-forward jaeger-6855c88678-twld4 16686:16686
+```
+
+Establish connection from local machine to eshop main service
+```
+$ kubectl port-forward eshop-59d84469f8-mcxq5 8080:8080
 ```
 
 Delete the cluster
