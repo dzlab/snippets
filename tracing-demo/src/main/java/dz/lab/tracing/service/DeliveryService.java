@@ -27,17 +27,18 @@ public class DeliveryService {
 
 	@GetMapping("/arrangeDelivery")
     public void arrangeDelivery(@RequestHeader HttpHeaders headers) {
-        SpanContext parent = tracer.extract(Format.Builtin.HTTP_HEADERS, new HttpHeadersCarrier(headers));
-        Span span = tracer.buildSpan("arrangeDelivery").asChildOf(parent).start();
-        String user = span.getBaggageItem(HttpHeaders.USER_AGENT);
-        logger.info("User is: '" + user + "'.");
+        // SpanContext parent = tracer.extract(Format.Builtin.HTTP_HEADERS, new HttpHeadersCarrier(headers));
+        // Span span = tracer.buildSpan("arrangeDelivery").asChildOf(parent).start();
+        // String user = span.getBaggageItem(HttpHeaders.USER_AGENT);
+        // logger.info("User is: '" + user + "'.");
 
-		Scope scope = tracer.scopeManager().activate(span);
-        HttpClient client = new HttpClient(tracer, span);
+		// Scope scope = tracer.scopeManager().activate(span);
+        // HttpClient client = new HttpClient(tracer, span);
+        HttpClient client = new HttpClient(null, null);
 		client.doGet("http://logistics:8080/transport");
         try {
             Thread.sleep(ThreadLocalRandom.current().nextInt(100, 1000));
         } catch (InterruptedException e) {}
-        span.finish();
+        // span.finish();
     }
 }

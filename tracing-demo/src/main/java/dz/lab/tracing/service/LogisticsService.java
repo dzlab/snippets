@@ -26,13 +26,13 @@ class LogisticsService {
 
 	@GetMapping("/transport")
     public void transport(@RequestHeader HttpHeaders headers) {
-        SpanContext parent = tracer.extract(Format.Builtin.HTTP_HEADERS, new HttpHeadersCarrier(headers));
-        Span span = tracer.buildSpan("transport").asChildOf(parent).start();
-        String user = span.getBaggageItem(HttpHeaders.USER_AGENT);
-        logger.info("User is: '" + user + "'.");
+        // SpanContext parent = tracer.extract(Format.Builtin.HTTP_HEADERS, new HttpHeadersCarrier(headers));
+        // Span span = tracer.buildSpan("transport").asChildOf(parent).start();
+        // String user = span.getBaggageItem(HttpHeaders.USER_AGENT);
+        // logger.info("User is: '" + user + "'.");
         try {
             Thread.sleep(ThreadLocalRandom.current().nextInt(100, 1000));
         } catch (InterruptedException e) {}
-        span.finish();
+        // span.finish();
     }
 }

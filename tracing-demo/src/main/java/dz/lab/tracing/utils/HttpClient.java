@@ -26,10 +26,10 @@ public class HttpClient {
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         TextMap httpHeadersCarrier = new HttpHeadersCarrier(headers);
-        Tags.SPAN_KIND.set(tracer.activeSpan(), Tags.SPAN_KIND_CLIENT);
-        Tags.HTTP_METHOD.set(tracer.activeSpan(), "GET");
-        Tags.HTTP_URL.set(tracer.activeSpan(), url.toString());
-        tracer.inject(span.context(), Format.Builtin.HTTP_HEADERS, httpHeadersCarrier);
+        // Tags.SPAN_KIND.set(tracer.activeSpan(), Tags.SPAN_KIND_CLIENT);
+        // Tags.HTTP_METHOD.set(tracer.activeSpan(), "GET");
+        // Tags.HTTP_URL.set(tracer.activeSpan(), url.toString());
+        // tracer.inject(span.context(), Format.Builtin.HTTP_HEADERS, httpHeadersCarrier);
         HttpEntity<String> entity = new HttpEntity<>("body", headers);
         ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
         return response.getBody();

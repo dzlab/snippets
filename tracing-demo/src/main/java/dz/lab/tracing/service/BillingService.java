@@ -28,16 +28,16 @@ public class BillingService {
 
 	@GetMapping("/payment")
     public void payment(@RequestHeader HttpHeaders headers) {
-        SpanContext parent = tracer.extract(Format.Builtin.HTTP_HEADERS, new HttpHeadersCarrier(headers));
-        Span span = tracer.buildSpan("payment").asChildOf(parent)
-            .withTag(Tags.SPAN_KIND.getKey(), Tags.SPAN_KIND_SERVER)
-            .start();
-        Scope scope = tracer.scopeManager().activate(span);
-        String user = span.getBaggageItem(HttpHeaders.USER_AGENT);
-        logger.info("User is: '" + user + "'.");
+        // SpanContext parent = tracer.extract(Format.Builtin.HTTP_HEADERS, new HttpHeadersCarrier(headers));
+        // Span span = tracer.buildSpan("payment").asChildOf(parent)
+        //     .withTag(Tags.SPAN_KIND.getKey(), Tags.SPAN_KIND_SERVER)
+        //     .start();
+        // Scope scope = tracer.scopeManager().activate(span);
+        // String user = span.getBaggageItem(HttpHeaders.USER_AGENT);
+        // logger.info("User is: '" + user + "'.");
         try {
             Thread.sleep(ThreadLocalRandom.current().nextInt(100, 1000));
         } catch (InterruptedException e) {}
-        span.finish();
+        // span.finish();
     }
 }
