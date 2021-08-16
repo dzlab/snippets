@@ -23,9 +23,9 @@ while True:
   print(line)
 ```
 
-Download and unzip Elasticsearch - [link](https://www.elastic.co/downloads/elasticsearch)
-Download and unzip Kibana - [link](https://www.elastic.co/downloads/kibana)
-Start Elasticsearch/Kibana
+1. Download and unzip Elasticsearch - [link](https://www.elastic.co/downloads/elasticsearch)
+2. Download and unzip Kibana - [link](https://www.elastic.co/downloads/kibana)
+3. Start Elasticsearch and Kibana
 ```
 $ cd kibana && bin/kibana
 $ cd elasticsearch && bin/elasticsearch
