@@ -20,9 +20,8 @@ object SparkSpacyExample extends App {
     jep.runScript("src/main/python/spacy_ner.py")
     iterator.map(text=>{
       val result = jep.invoke("ner", text.asInstanceOf[AnyRef])
-      result.asInstanceOf[ArrayList[ArrayList[String]]].asScala
-        .map(_.asScala.mkString(","))
-        .mkString("|")
+      Utils.prettify(result)
+      text
     })
   }
 

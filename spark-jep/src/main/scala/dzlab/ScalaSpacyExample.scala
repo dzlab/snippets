@@ -1,6 +1,5 @@
 package dzlab
 
-import java.util.ArrayList
 import jep.Jep
 
 object ScalaSpacyExample extends App {
@@ -12,10 +11,10 @@ object ScalaSpacyExample extends App {
 
   // Evaluation method 1
   jep.eval(s"result = ner('$text')")
-  val ans1 = jep.getValue("result")
-  println(ans1.asInstanceOf[ArrayList[ArrayList[String]]])
+  val res1 = jep.getValue("result")
+  println(Utils.prettify(res1))
 
   // Evaluation method 2
-  val ans2 = jep.invoke("ner", text.asInstanceOf[AnyRef])
-  println(ans2.asInstanceOf[ArrayList[ArrayList[String]]])
+  val res2 = jep.invoke("ner", text.asInstanceOf[AnyRef])
+  println(Utils.prettify(res2))
 }
