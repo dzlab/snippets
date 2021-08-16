@@ -1,10 +1,11 @@
 package dzlab
 
+import java.io.File
 import jep.Jep
 
 object ScalaSpacyExample extends App {
 
-  val jep = new Jep()
+  val jep = new Jep(false, new File(".").getPath())
   jep.runScript("src/main/python/spacy_ner.py")
 
   val text = "The red fox jumped over the lazy dog."
