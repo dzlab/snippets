@@ -25,6 +25,7 @@ Required-by:
 
 Export the path to jep
 ```
+$ export JAVA_LIBRARY_PATH=/usr/local/share/conda/envs/py3/lib/python3.9/site-packages/jep
 $ export LD_LIBRARY_PATH=/usr/local/share/conda/envs/py3/lib/python3.9/site-packages/jep
 ```
 

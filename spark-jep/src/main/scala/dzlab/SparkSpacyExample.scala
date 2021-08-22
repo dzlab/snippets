@@ -15,16 +15,36 @@ object SparkSpacyExample extends App {
 
   val textFile = sc.textFile("data/title_StackOverflow.txt")
 
-  val resultRDD = textFile.mapPartitions{iterator =>
+  // Evaluation method 1
+  val resultRDD1 = textFile.mapPartitions{input =>
+    val jep = new Jep()
+    val scriptFile = "src/main/python/spacy_ner.py"
+    val script = scala.io.Source.fromFile(scriptFile).mkString
+    jep.setInteractive(true)
+    jep.eval(script)
+    jep.setInteractive(false)
+    val output = input.map(text=>{
+      jep.eval(s"result = ner('$text')")
+      val result = jep.getValue("result")
+      Utils.prettify(result)
+    })
+    jep.close()
+    output
+  }
+  println(resultRDD1.collect().mkString("\n"))
+
+  // Evaluation method 2
+  val resultRDD2 = textFile.mapPartitions{input =>
     val jep = new Jep()
     jep.runScript("src/main/python/spacy_ner.py")
-    iterator.map(text=>{
+    val output = input.map(text=>{
       val result = jep.invoke("ner", text.asInstanceOf[AnyRef])
       Utils.prettify(result)
-      text
     })
+    jep.close()
+    output
   }
 
-  println(resultRDD.collect().mkString("\n"))
+  println(resultRDD2.collect().mkString("\n"))
 
 }
