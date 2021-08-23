@@ -39,6 +39,8 @@ $ sbt "runMain dzlab.ScalaSpacyExample"
 Run the Spark spacy example
 ```
 $ sbt "runMain dzlab.SparkSpacyExample"
+21/08/22 17:55:20 INFO DAGScheduler: Job 0 finished: collect at SparkSpacyExample.scala:33, took 3.434171 s
+How,ADV,advmod|do,AUX,aux|I,PRON,nsubj|fill,VERB,ROOT|a,DET,det|DataSet,PROPN,dobj|or,CCONJ,cc|a,DET,det|DataTable,PROPN,conj|from,ADP,prep|a,DET,det|LINQ,ADJ,amod|query,NOUN,compound|resultset,NOUN,pobj|?,PUNCT,punct
 ```
 
 Run the scala nltk example
@@ -59,3 +61,4 @@ $ sbt "runMain dzlab.SparkNltkExample"
 - https://github.com/jacoxu/StackOverflow
 - https://spark.apache.org/docs/3.1.2/quick-start.html
 - https://github.com/orico/SpacyVsStanfordNER
+- How to execute Python code in Java - [link](https://www.theswdeveloper.com/post/java-python-jep)
