@@ -4,6 +4,7 @@ Examples running python code from spark scala using [jep](https://github.com/nin
 Install dependencies: jep, spacy and download a language model
 ```
 $ pip install jep
+$ pip install nltk
 $ pip install spacy
 $ python -m spacy download en_core_web_sm
 ```
@@ -29,15 +30,26 @@ $ export JAVA_LIBRARY_PATH=/usr/local/share/conda/envs/py3/lib/python3.9/site-pa
 $ export LD_LIBRARY_PATH=/usr/local/share/conda/envs/py3/lib/python3.9/site-packages/jep
 ```
 
-Run the scala example
+Run the scala spacy example
 ```
 $ sbt "runMain dzlab.ScalaSpacyExample"
 [[The, DET, det], [red, ADJ, amod], [fox, NOUN, nsubj], [jumped, VERB, ROOT], [over, ADP, prep], [the, DET, det], [lazy, ADJ, amod], [dog, NOUN, pobj], [., PUNCT, punct]]
 ```
 
-Run the Spark example
+Run the Spark spacy example
 ```
 $ sbt "runMain dzlab.SparkSpacyExample"
+```
+
+Run the scala nltk example
+```
+$ sbt "runMain dzlab.ScalaNltkExample"
+The,The|red,red|fox,fox|jumped,jumped|over,over|the,the|lazy,lazy|dog,dog|.,.
+```
+
+Run the Spark nltk example
+```
+$ sbt "runMain dzlab.SparkNltkExample"
 ```
 
 ## References
@@ -46,3 +58,4 @@ $ sbt "runMain dzlab.SparkSpacyExample"
 - https://github.com/juand-r/entity-recognition-datasets
 - https://github.com/jacoxu/StackOverflow
 - https://spark.apache.org/docs/3.1.2/quick-start.html
+- https://github.com/orico/SpacyVsStanfordNER
