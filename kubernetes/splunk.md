@@ -123,13 +123,37 @@ Forwarding from [::1]:8000 -> 8000
 
 ## Setup Splunk Connect
 ### Create a configuration file
-
+Get Splunk credentials
 ```
 $ hostname="splunk-s1-standalone-service"
 $ token=`kubectl get secret splunk-default-secret -o go-template='{{ index .data "hec_token" }}' | base64 -d`
 $ password=`kubectl get secret splunk-default-secret -o go-template='{{ index .data "password" }}' | base64 -d`
 $ index="main"
 $ file=$(mktemp /tmp/splunk-connect-values.XXXXXX)
+```
+
+Define a values file specific to our Splunk deployment (for more options see default Splunk Connect [values.yaml](https://github.com/splunk/splunk-connect-for-kubernetes/blob/develop/helm-chart/splunk-connect-for-kubernetes/values.yaml) file).
+
+Custom values file for collecting logs
+```
+$ cat >"${file}" << EOF
+global:
+  splunk:
+    hec:
+      host: ${hostname}
+      port: 8088
+      token: ${token}
+      protocol: https
+      indexName: ${index}
+      insecureSSL: true
+
+splunk-kubernetes-logging:
+  enabled: true
+EOF
+```
+
+Custom values file for collecting logs, metrics, objects
+```
 $ cat >"${file}" << EOF
 global:
   splunk:
@@ -171,6 +195,7 @@ splunk-kubernetes-metrics:
       insecureSSL: true
 EOF
 ```
+
 ### Install Splunk Connect with Helm
 ```
 $ helm repo add splunk https://splunk.github.io/splunk-connect-for-kubernetes/
