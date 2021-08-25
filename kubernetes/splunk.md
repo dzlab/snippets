@@ -175,8 +175,8 @@ EOF
 ```
 $ helm repo add splunk https://splunk.github.io/splunk-connect-for-kubernetes/
 "splunk" has been added to your repositories
-$ helm install splunk-connect -f "${file}" splunk/splunk-connect-for-kubernetes
-NAME: splunk-connect
+$ helm install splunkconnect -n splunk -f "${file}" splunk/splunk-connect-for-kubernetes
+NAME: splunkconnect
 LAST DEPLOYED: Wed Aug 25 11:26:37 2021
 NAMESPACE: default
 STATUS: deployed
@@ -210,6 +210,14 @@ $ echo "To login use admin:${password} http://${url}:8000"
 
 ![image](https://user-images.githubusercontent.com/1645304/130846001-aa36c09e-9e96-43de-a566-9b5185f43082.png)
 
+### Clean up
+```
+$ helm list -n splunk
+NAME         	NAMESPACE	REVISION	UPDATED                                	STATUS  	CHART                              	APP VERSION
+splunkconnect	splunk   	2       	2021-08-13 16:42:46.653713878 +0000 UTC	deployed	splunk-connect-for-kubernetes-1.4.7	1.4.7      
+$ helm delete splunkconnect -n splunk || true
+release "splunkconnect" uninstalled
+```
 
 ## Resources
 - Getting Started with the Splunk Operator for Kubernetes - [link](https://github.com/splunk/splunk-operator/blob/develop/docs/README.md)
