@@ -155,6 +155,31 @@ splunk-kubernetes-metrics:
   enabled: false
 EOF
 ```
+Note by default the expected log format is JSON, so if your containers output text you may need to configure the format accordingly, e.g.
+```
+$ cat >"${file}" << EOF
+global:
+  splunk:
+    hec:
+      host: ${hostname}
+      port: 8088
+      token: ${token}
+      protocol: https
+      indexName: ${index}
+      insecureSSL: true
+
+splunk-kubernetes-logging:
+  enabled: true
+  containers:
+    logFormat: '%Y-%m-%dT%H:%M:%S.%N%:z'
+    logFormatType: cri
+
+splunk-kubernetes-objects:
+  enabled: false
+splunk-kubernetes-metrics:
+  enabled: false
+EOF
+```
 
 Custom values file for collecting logs, metrics, objects
 ```
