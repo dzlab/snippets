@@ -201,6 +201,10 @@ Look for answers here: http://docs.splunk.com
 Warning: Disabling TLS will send the data unencrypted and will be vulnerable to MiTM attacks
 ```
 
+After successfully deploying Splunk Connect an index called `main` will be created
+![image](https://user-images.githubusercontent.com/1645304/130860343-7e689d7f-04b2-4a40-852a-0d3085c88138.png)
+
+
 ### Search the logs
 Check logs are forwarded to splunk
 ```
