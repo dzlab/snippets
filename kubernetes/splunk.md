@@ -149,6 +149,10 @@ global:
 
 splunk-kubernetes-logging:
   enabled: true
+splunk-kubernetes-objects:
+  enabled: false
+splunk-kubernetes-metrics:
+  enabled: false
 EOF
 ```
 
