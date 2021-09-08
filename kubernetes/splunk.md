@@ -225,6 +225,12 @@ splunk-kubernetes-metrics:
 EOF
 ```
 
+For multiline logs handling check:
+- [DOCS] Add multiline logging tutorial - [link](https://github.com/splunk/splunk-connect-for-kubernetes/issues/255)
+- Multiline log assistance - [link](https://github.com/splunk/splunk-connect-for-kubernetes/issues/134)
+- Splunking Ghost - [link](https://mattymo.io/splunking-ghost/)
+- Splunk Toronto UserGroup May 2020 - [link](https://mattymo.io/code/mattymo/splunk_toronto_usergroup_may_2020/-/blob/master/README.md#deploy-splunk-connect-for-kubernetes)
+
 ### Install Splunk Connect with Helm
 ```
 $ helm repo add splunk https://splunk.github.io/splunk-connect-for-kubernetes/
