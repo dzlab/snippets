@@ -114,12 +114,89 @@ $ kubectl get secret splunk-default-secret -o go-template='{{ index .data "passw
 ARDpFz9lu8rDnyv22eSApL8a
 ```
 
-Open a connection to Splunk
+### Access Splunk
+#### Port forwarding
+Open a connection to Splunk via **Port forwarding**
 ```
 $ kubectl port-forward splunk-s1-standalone-0 8000
 Forwarding from 127.0.0.1:8000 -> 8000
 Forwarding from [::1]:8000 -> 8000
 ```
+
+#### Ingress
+Open a connection to Splunk via **Ingress**
+
+Create an Ingress controller manifest `splunk-ingress.yaml` that will forward requests to `splunk-s1-standalone-service` backend service.
+```
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: splunk-ingress
+  annotations:
+    # use the shared ingress-nginx
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/default-backend: splunk-s1-standalone-service
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+spec:
+  rules:
+  - http:
+      paths:
+      - path: "/splunk"
+        pathType: Prefix
+        backend:
+          service:
+            name: splunk-s1-standalone-service
+            port:
+              number: 8000
+```
+
+```
+$ kubectl apply -f splunk-ingress.yaml -n splunk
+```
+
+```
+$ kubectl get ingress splunk-ingress -n splunk        
+NAME                 CLASS    HOSTS   ADDRESS   PORTS   AGE
+ingress-standalone   <none>   *                 80      118s
+```
+
+```
+$ kubectl get ingress splunk-ingress -n splunk -o yaml
+```
+
+#### Load Balancer
+Create a load balancer manifest `splunk-lb.yaml`
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: splunk-lb
+spec:
+  type: LoadBalancer
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8000
+  selector:
+    app.kubernetes.io/component: standalone
+    app.kubernetes.io/instance: splunk-s1-standalone
+    app.kubernetes.io/managed-by: splunk-operator
+    app.kubernetes.io/name: standalone
+    app.kubernetes.io/part-of: splunk-s1-standalone
+```
+Create load balancer service
+```
+$ kubectl apply -f splunk-lb.yaml -n splunk
+```
+Check external IP
+```
+$ kubectl get svc splunk-lb -n splunk -o wide
+NAME        TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)        AGE   SELECTOR
+splunk-lb   LoadBalancer   INT-IP-ADDR    EXT-IP-ADDR    80:32656/TCP   91s   app.kubernetes.io/component=standalone,app.kubernetes.io/instance=splunk-s1-standalone,app.kubernetes.io/managed-by=splunk-operator,app.kubernetes.io/name=standalone,app.kubernetes.io/part-of=splunk-s1-standalone
+```
+
 
 ## Setup Splunk Connect
 ### Create a configuration file
@@ -288,3 +365,4 @@ release "splunkconnect" uninstalled
 - Reading global kubernetes secret object - [link](https://github.com/splunk/splunk-operator/blob/develop/docs/Examples.md#reading-global-kubernetes-secret-object)
 - Configuring Ingress to make Splunk ports accessible outside of Kubernetes - [link](https://github.com/splunk/splunk-operator/blob/develop/docs/Ingress.md)
 - Splunk Connect for Kubernetes - [link](https://github.com/splunk/splunk-connect-for-kubernetes)
+- Use a public Standard Load Balancer in Azure Kubernetes Service (AKS) - [link](https://docs.microsoft.com/en-us/azure/aks/load-balancer-standard)
