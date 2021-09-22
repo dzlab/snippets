@@ -250,6 +250,13 @@ splunk-kubernetes-logging:
   containers:
     logFormat: '%Y-%m-%dT%H:%M:%S.%N%:z'
     logFormatType: cri
+  logs:
+    applogs:
+      from:
+        pod: '*'
+      multiline:
+        firstline: /^\d{4}-\d{2}-\d{2}T-\d{2}:\d{2}:\d{2}\.\d{3}-\d{4}/
+        separator: ""
 
 splunk-kubernetes-objects:
   enabled: false
