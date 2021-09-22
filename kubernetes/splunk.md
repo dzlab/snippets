@@ -373,3 +373,4 @@ release "splunkconnect" uninstalled
 - Configuring Ingress to make Splunk ports accessible outside of Kubernetes - [link](https://github.com/splunk/splunk-operator/blob/develop/docs/Ingress.md)
 - Splunk Connect for Kubernetes - [link](https://github.com/splunk/splunk-connect-for-kubernetes)
 - Use a public Standard Load Balancer in Azure Kubernetes Service (AKS) - [link](https://docs.microsoft.com/en-us/azure/aks/load-balancer-standard)
+- Concat plugin used by Splunk Connect to parse logs - [link](https://github.com/fluent-plugins-nursery/fluent-plugin-concat)
