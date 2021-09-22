@@ -200,9 +200,13 @@ splunk-lb   LoadBalancer   INT-IP-ADDR    EXT-IP-ADDR    80:32656/TCP   91s   ap
 
 ## Setup Splunk Connect
 ### Create a configuration file
-Get Splunk credentials
+Get splunk server address, use DNS name `<service>.<namespace>` or just `<service>`
 ```
 $ hostname="splunk-s1-standalone-service"
+```
+
+Get Splunk credentials
+```
 $ token=`kubectl get secret splunk-monit-secret -n monit -o go-template='{{ index .data "hec_token" }}' | base64 -d`
 $ password=`kubectl get secret splunk-monit-secret -n monit -o go-template='{{ index .data "password" }}' | base64 -d`
 $ index="main"
