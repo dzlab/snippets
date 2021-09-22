@@ -7,7 +7,7 @@ See https://github.com/dzlab/snippets/tree/master/tracing-demo/k8s#setup-aks
 ### Install Splunk Operator
 Install Splunk Operator
 ```
-$ kubectl apply -f https://github.com/splunk/splunk-operator/releases/download/1.0.2/splunk-operator-install.yaml
+$ kubectl apply -f https://github.com/splunk/splunk-operator/releases/download/1.0.2/splunk-operator-install.yaml -n monit
 customresourcedefinition.apiextensions.k8s.io/clustermasters.enterprise.splunk.com created
 customresourcedefinition.apiextensions.k8s.io/indexerclusters.enterprise.splunk.com created
 customresourcedefinition.apiextensions.k8s.io/licensemasters.enterprise.splunk.com created
@@ -21,7 +21,7 @@ deployment.apps/splunk-operator created
 
 Check the operator is up and running
 ```
-$ kubectl get pods
+$ kubectl get pods -n monit
 NAME                              READY   STATUS    RESTARTS   AGE
 splunk-operator-f7c8d94f9-tsp9z   1/1     Running   0          10s
 ```
@@ -29,7 +29,7 @@ splunk-operator-f7c8d94f9-tsp9z   1/1     Running   0          10s
 ### Install Splunk Standalone
 Create a Splunk Standalone deployment
 ```
-$ cat <<EOF | kubectl apply -f -
+$ cat <<EOF | kubectl apply -n monit -f -
 apiVersion: enterprise.splunk.com/v2
 kind: Standalone
 metadata:
@@ -41,7 +41,7 @@ standalone.enterprise.splunk.com/s1 created
 ```
 Check all Splunk Pods are up and running
 ```
-$ kubectl get pods              
+$ kubectl get pods -n monit              
 NAME                                  READY   STATUS    RESTARTS   AGE
 splunk-default-monitoring-console-0   1/1     Running   0          3m19s
 splunk-operator-f7c8d94f9-tsp9z       1/1     Running   0          6m38s
@@ -50,7 +50,7 @@ splunk-s1-standalone-0                1/1     Running   0          5m56s
 
 Get the credentials created for the Splunk Standalone deployment
 ```
-$ kubectl get secret splunk-default-secret -o yaml
+$ kubectl get secret splunk-default-secret -o yaml -n monit
 apiVersion: v1
 data:
   hec_token: N0NEMDQwRDgtMDc0NC1EOEQ3LTU1NDgtOTg4NzY1QTZDODA2
@@ -101,7 +101,7 @@ type: Opaque
 
 Decode the secrents from Base64
 ```
-$ kubectl get secret splunk-default-secret -o go-template=' {{range $k,$v := .data}}{{printf "%s: " $k}}{{if not $v}}{{$v}}{{else}}{{$v | base64decode}}{{end}}{{"\n"}}{{end}}'
+$ kubectl get secret splunk-monit-secret -n monit -o go-template=' {{range $k,$v := .data}}{{printf "%s: " $k}}{{if not $v}}{{$v}}{{else}}{{$v | base64decode}}{{end}}{{"\n"}}{{end}}'
  hec_token: 7CD040D8-0744-D8D7-5548-988765A6C806
 idxc_secret: SpGYHlKYHj7WDZl8Y1qXuP42
 pass4SymmKey: MKgf5NMvaPK8ZqSC74WEvKhn
@@ -110,7 +110,7 @@ shc_secret: OV1wzxliMe2dpFd78l9TWnoS
 ```
 For instance to get the password
 ```
-$ kubectl get secret splunk-default-secret -o go-template='{{ index .data "password" }}' | base64 -d
+$ kubectl get secret splunk-monit-secret -n monit -o go-template='{{ index .data "password" }}' | base64 -d
 ARDpFz9lu8rDnyv22eSApL8a
 ```
 
@@ -118,7 +118,7 @@ ARDpFz9lu8rDnyv22eSApL8a
 #### Port forwarding
 Open a connection to Splunk via **Port forwarding**
 ```
-$ kubectl port-forward splunk-s1-standalone-0 8000
+$ kubectl port-forward splunk-s1-standalone-0 8000 -n monit
 Forwarding from 127.0.0.1:8000 -> 8000
 Forwarding from [::1]:8000 -> 8000
 ```
@@ -153,17 +153,17 @@ spec:
 ```
 
 ```
-$ kubectl apply -f splunk-ingress.yaml -n splunk
+$ kubectl apply -f splunk-ingress.yaml -n monit
 ```
 
 ```
-$ kubectl get ingress splunk-ingress -n splunk        
+$ kubectl get ingress splunk-ingress -n monit        
 NAME                 CLASS    HOSTS   ADDRESS   PORTS   AGE
 ingress-standalone   <none>   *                 80      118s
 ```
 
 ```
-$ kubectl get ingress splunk-ingress -n splunk -o yaml
+$ kubectl get ingress splunk-ingress -n monit -o yaml
 ```
 
 #### Load Balancer
@@ -188,11 +188,11 @@ spec:
 ```
 Create load balancer service
 ```
-$ kubectl apply -f splunk-lb.yaml -n splunk
+$ kubectl apply -f splunk-lb.yaml -n monit
 ```
 Check external IP
 ```
-$ kubectl get svc splunk-lb -n splunk -o wide
+$ kubectl get svc splunk-lb -n monit -o wide
 NAME        TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)        AGE   SELECTOR
 splunk-lb   LoadBalancer   INT-IP-ADDR    EXT-IP-ADDR    80:32656/TCP   91s   app.kubernetes.io/component=standalone,app.kubernetes.io/instance=splunk-s1-standalone,app.kubernetes.io/managed-by=splunk-operator,app.kubernetes.io/name=standalone,app.kubernetes.io/part-of=splunk-s1-standalone
 ```
@@ -203,8 +203,8 @@ splunk-lb   LoadBalancer   INT-IP-ADDR    EXT-IP-ADDR    80:32656/TCP   91s   ap
 Get Splunk credentials
 ```
 $ hostname="splunk-s1-standalone-service"
-$ token=`kubectl get secret splunk-default-secret -o go-template='{{ index .data "hec_token" }}' | base64 -d`
-$ password=`kubectl get secret splunk-default-secret -o go-template='{{ index .data "password" }}' | base64 -d`
+$ token=`kubectl get secret splunk-monit-secret -n monit -o go-template='{{ index .data "hec_token" }}' | base64 -d`
+$ password=`kubectl get secret splunk-monit-secret -n monit -o go-template='{{ index .data "password" }}' | base64 -d`
 $ index="main"
 $ file=$(mktemp /tmp/splunk-connect-values.XXXXXX)
 ```
@@ -319,7 +319,7 @@ For multiline logs handling check:
 ```
 $ helm repo add splunk https://splunk.github.io/splunk-connect-for-kubernetes/
 "splunk" has been added to your repositories
-$ helm install splunkconnect -n splunk -f "${file}" splunk/splunk-connect-for-kubernetes
+$ helm install splunkconnect -n monit -f "${file}" splunk/splunk-connect-for-kubernetes
 NAME: splunkconnect
 LAST DEPLOYED: Wed Aug 25 11:26:37 2021
 NAMESPACE: default
@@ -360,10 +360,10 @@ $ echo "To login use admin:${password} http://${url}:8000"
 
 ### Clean up
 ```
-$ helm list -n splunk
+$ helm list -n monit
 NAME         	NAMESPACE	REVISION	UPDATED                                	STATUS  	CHART                              	APP VERSION
 splunkconnect	splunk   	2       	2021-08-13 16:42:46.653713878 +0000 UTC	deployed	splunk-connect-for-kubernetes-1.4.7	1.4.7      
-$ helm delete splunkconnect -n splunk || true
+$ helm delete splunkconnect -n monit || true
 release "splunkconnect" uninstalled
 ```
 
