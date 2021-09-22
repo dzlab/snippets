@@ -374,3 +374,4 @@ release "splunkconnect" uninstalled
 - Splunk Connect for Kubernetes - [link](https://github.com/splunk/splunk-connect-for-kubernetes)
 - Use a public Standard Load Balancer in Azure Kubernetes Service (AKS) - [link](https://docs.microsoft.com/en-us/azure/aks/load-balancer-standard)
 - Concat plugin used by Splunk Connect to parse logs - [link](https://github.com/fluent-plugins-nursery/fluent-plugin-concat)
+- Use DNS names to refer to a service located in another namespace - [link](https://stackoverflow.com/questions/37221483/service-located-in-another-namespace)
