@@ -255,8 +255,8 @@ splunk-kubernetes-logging:
       from:
         pod: '*'
       multiline:
-        firstline: /^\d{4}-\d{2}-\d{2}T-\d{2}:\d{2}:\d{2}\.\d{3}-\d{4}/
-        separator: ""
+        firstline: /^\d{4}-\d{2}-\d{2}T-\d{2}:\d{2}:\d{2}\.\d{3}+\d{4}/
+        separator: "\n"
 
 splunk-kubernetes-objects:
   enabled: false
