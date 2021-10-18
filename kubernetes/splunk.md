@@ -199,6 +199,11 @@ splunk-lb   LoadBalancer   INT-IP-ADDR    EXT-IP-ADDR    80:32656/TCP   91s   ap
 
 
 ## Setup Splunk Connect
+
+### Configure HEC
+
+![time-extract](https://user-images.githubusercontent.com/1645304/137813269-ea21f1ed-8234-4b64-b4f5-3f77cf927169.gif)
+
 ### Create a configuration file
 Get splunk server address, use DNS name `<service>.<namespace>` or just `<service>`
 ```
