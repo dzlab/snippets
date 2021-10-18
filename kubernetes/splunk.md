@@ -176,9 +176,18 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-  - protocol: TCP
+  - name: web
+    protocol: TCP
     port: 80
     targetPort: 8000
+  - name: hec
+    protocol: TCP
+    port: 8088
+    targetPort: 8088
+  - name: management
+    protocol: TCP
+    port: 8089
+    targetPort: 8089
   selector:
     app.kubernetes.io/component: standalone
     app.kubernetes.io/instance: splunk-s1-standalone
