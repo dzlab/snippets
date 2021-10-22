@@ -1,6 +1,93 @@
 # Prometheus
 
 ## With HELM
+### Option 1
+See https://kruschecompany.com/kubernetes-prometheus-operator/
+
+Install prometheus-operator helm chart
+```
+$ helm install prometheus stable/prometheus-operator --namespace monitoring
+```
+Check prometheus services are started
+```
+$ kubectl get pod -n monitoring
+NAME                                                     READY   STATUS    RESTARTS   AGE
+alertmanager-prometheus-prometheus-oper-alertmanager-0   2/2     Running   0          42s
+prometheus-grafana-78444cbd5c-zw6mp                      2/2     Running   0          48s
+prometheus-kube-state-metrics-5f89586745-jgxjk           1/1     Running   0          48s
+prometheus-prometheus-node-exporter-5lw88                1/1     Running   0          48s
+prometheus-prometheus-node-exporter-5sv4t                1/1     Running   0          48s
+prometheus-prometheus-node-exporter-8t9fs                1/1     Running   0          48s
+prometheus-prometheus-node-exporter-gfljz                1/1     Running   0          48s
+prometheus-prometheus-node-exporter-z4g6g                1/1     Running   0          48s
+prometheus-prometheus-oper-operator-6d9c4bdb9f-4v77q     2/2     Running   0          48s
+prometheus-prometheus-prometheus-oper-prometheus-0       3/3     Running   1          32s
+```
+
+Now deployServiceMonitors. Prometheus discovers ServiceMonitors by label. You need to know which ServiceMonitors label it is looking for (here `release: prometheus`). To do this:
+
+kubectl get prometheuses.monitoring.coreos.com -oyaml
+We are looking for the serviceMonitorSelector block:
+```
+$ kubectl get prometheuses.monitoring.coreos.com -o yaml -n monitoring
+...
+    serviceMonitorNamespaceSelector: {}
+    serviceMonitorSelector:
+      matchLabels:
+        release: prometheus
+...
+```
+
+Create a service monitor object for your serivce `myapp-metrics-service.yaml `
+```
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: myapp
+  labels:
+    release: prometheus
+    app: myapp-metrics
+spec:
+  endpoints:
+  - port: metrics
+    path: '/metrics'
+  namespaceSelector:
+    matchNames:
+      - mynamespace
+  selector:
+    matchLabels:
+      myappLabel: myappLabelValue
+```
+Create the service monitor object
+```
+$ kubectl apply -f myapp-metrics-service.yaml -n monitoring  
+```
+Check that our service monitor was created
+```
+$ kubectl get servicemonitors.monitoring.coreos.com -n monitoring
+NAME                                                 AGE
+myapp                                                70s
+prometheus-prometheus-oper-alertmanager              41m
+prometheus-prometheus-oper-apiserver                 41m
+prometheus-prometheus-oper-coredns                   41m
+prometheus-prometheus-oper-grafana                   41m
+prometheus-prometheus-oper-kube-controller-manager   41m
+prometheus-prometheus-oper-kube-etcd                 41m
+prometheus-prometheus-oper-kube-proxy                41m
+prometheus-prometheus-oper-kube-scheduler            41m
+prometheus-prometheus-oper-kube-state-metrics        41m
+prometheus-prometheus-oper-kubelet                   41m
+prometheus-prometheus-oper-node-exporter             41m
+prometheus-prometheus-oper-operator                  41m
+prometheus-prometheus-oper-prometheus                41m
+```
+
+Open connection to prometheus
+```
+$ kubectl port-forward prometheus-prometheus-prometheus-oper-prometheus-0 9090:9090 -n monitoring
+```
+
+### Option 2
 ```
 $ helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 NAME: prometheus
