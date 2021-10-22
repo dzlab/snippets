@@ -422,3 +422,4 @@ $ kubectl create -f manifests/
 ## References
 - Prometheus operator quick start- [link](https://prometheus-operator.dev/docs/prologue/quick-start/)
 - kube-prometheus a complete monitoring stack using jsonnet - [link](https://elastisys.com/kube-prometheus-a-complete-monitoring-stack-using-jsonnet/)
+- Prometheus Operator – Installing Prometheus Monitoring Within The Kubernetes Environment [link](https://kruschecompany.com/kubernetes-prometheus-operator/)
