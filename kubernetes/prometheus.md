@@ -396,6 +396,9 @@ metadata:
 </p>
 </details>
 
+### References
+- https://sysdig.com/blog/kubernetes-monitoring-prometheus/
+
 ## With kube-prometheus
 ### Setup
 Get the project
