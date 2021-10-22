@@ -38,7 +38,7 @@ $ kubectl get prometheuses.monitoring.coreos.com -o yaml -n monitoring
 ...
 ```
 
-Create a service monitor object for your serivce `myapp-metrics-service.yaml ` (notice how we are using `release: prometheus` label)
+Create a service monitor object for your serivce `myapp-metrics-service.yaml ` (notice how we are using `release: prometheus` label), also this assumes our app has a port named `metrics` and that metrics can be grabed from path `/metrics`.
 ```
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
