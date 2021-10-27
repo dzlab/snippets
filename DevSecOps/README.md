@@ -3,7 +3,7 @@
 - http://bit.ly/rht-security-workshop —> Lab Instructions on GitHub
 - and lab materials: http://bit.ly/rht-security-workshop
 
-#LAB INFORMATION
+# LAB INFORMATION
 - Welcome to: Security with OCP for DevSecOps
 - Your assigned lab GUID is	d912
 - Let's get started! Please read these instructions carefully before starting to have the best lab experience:
