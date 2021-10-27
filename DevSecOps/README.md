@@ -1,34 +1,33 @@
-Link for Lab https://www.opentlc.com/gg/gg.cgi?profile=generic_na_aleonard
-Activation Key: a2094
-http://bit.ly/rht-security-workshop —> Lab Instructions on GitHub
-and lab materials: http://bit.ly/rht-security-workshop
+- Link for Lab https://www.opentlc.com/gg/gg.cgi?profile=generic_na_aleonard
+- Activation Key: a2094
+- http://bit.ly/rht-security-workshop —> Lab Instructions on GitHub
+- and lab materials: http://bit.ly/rht-security-workshop
 
 #LAB INFORMATION
-Welcome to: Security with OCP for DevSecOps
-Your assigned lab GUID is	d912
-Let's get started! Please read these instructions carefully before starting to have the best lab experience:
-Save the above GUID as you will need it to access your lab's systems from your workstation.
-Consult the lab instructions before attempting to connect to the lab environment.
-Please note the following information about your lab environment:
-Openshift Console: https://console-openshift-console.apps.cluster-zc8c2.zc8c2.sandbox970.opentlc.com
-Openshift API for command line 'oc' client: https://api.cluster-zc8c2.zc8c2.sandbox970.opentlc.com:6443
-Download oc client from http://d3s3zqyaz8cp2d.cloudfront.net/pub/openshift-v4/clients/ocp/stable-4.7/openshift-client-linux.tar.gz
-HTPasswd Authentication is enabled on this cluster.
-Users user1 .. user10 are created with password `openshift`
-User `admin` with password `oHhxfUDD7z2l4klF` is cluster admin.
-DevSecOps Workshop Dev Track provisioned for 3 user(s)
-Follow the lab directions located here: https://github.com/RedHatDemos/SecurityDemos/blob/master/2021Labs/OpenShiftSecurity/documentation/README.adoc
-Lab Instructor README can be found here: https://docs.google.com/document/d/1REf_acZHlbqMW5OlGMF1VMt36zp2ndffUPOkOrQi0ew/edit?usp=sharing
-DEMO Video can be found here: https://drive.google.com/file/d/1QFO2BV6mvUCqa_aj3I3qKJLN_mQRgIkK/view?usp=sharing
-OpenShift credentials for attendees: userXX / openshift
-CodeReady Workspaces credentials for attendees: userXX / openshift
-OpenShift Console: http://console-openshift-console.apps.cluster-zc8c2.zc8c2.sandbox970.opentlc.com
-Cluster admin login with 'system:admin' / 'r3dh4t1!'
-CodeReady Console: https://codeready-ocp-workshop.apps.cluster-zc8c2.zc8c2.sandbox970.opentlc.com
-Admin login with 'admin' / 'admin'
-You can access your bastion via SSH:
-ssh lab-user@bastion.zc8c2.sandbox970.opentlc.com
-Make sure you use the username 'lab-user' and the password 'pdi9rAglyLbY' when prompted.
-WARNING: You should only click FORGET SESSION if requested to do so by a lab attendant.
+- Welcome to: Security with OCP for DevSecOps
+- Your assigned lab GUID is	d912
+- Let's get started! Please read these instructions carefully before starting to have the best lab experience:
+- Save the above GUID as you will need it to access your lab's systems from your workstation.
+- Consult the lab instructions before attempting to connect to the lab environment.
+- Please note the following information about your lab environment:
+- Openshift Console: https://console-openshift-console.apps.cluster-zc8c2.zc8c2.sandbox970.opentlc.com
+- Openshift API for command line 'oc' client: https://api.cluster-zc8c2.zc8c2.sandbox970.opentlc.com:6443
+- Download oc client from http://d3s3zqyaz8cp2d.cloudfront.net/pub/openshift-v4/clients/ocp/stable-4.7/openshift-client-linux.tar.gz
+- HTPasswd Authentication is enabled on this cluster.
+- Users user1 .. user10 are created with password `openshift`
+- User `admin` with password `oHhxfUDD7z2l4klF` is cluster admin.
+- DevSecOps Workshop Dev Track provisioned for 3 user(s)
+- Follow the lab directions located here: https://github.com/RedHatDemos/SecurityDemos/blob/master/2021Labs/OpenShiftSecurity/documentation/README.adoc
+- Lab Instructor README can be found here: https://docs.google.com/document/d/1REf_acZHlbqMW5OlGMF1VMt36zp2ndffUPOkOrQi0ew/edit?usp=sharing
+- DEMO Video can be found here: https://drive.google.com/file/d/1QFO2BV6mvUCqa_aj3I3qKJLN_mQRgIkK/view?usp=sharing
+- OpenShift credentials for attendees: userXX / openshift
+- CodeReady Workspaces credentials for attendees: userXX / openshift
+- OpenShift Console: http://console-openshift-console.apps.cluster-zc8c2.zc8c2.sandbox970.opentlc.com
+- Cluster admin login with 'system:admin' / 'r3dh4t1!'
+- CodeReady Console: https://codeready-ocp-workshop.apps.cluster-zc8c2.zc8c2.sandbox970.opentlc.com
+- Admin login with 'admin' / 'admin'
+- You can access your bastion via SSH:
+- ssh lab-user@bastion.zc8c2.sandbox970.opentlc.com
+- Make sure you use the username 'lab-user' and the password 'pdi9rAglyLbY' when prompted.
+- WARNING: You should only click FORGET SESSION if requested to do so by a lab attendant.
 
-FORGET SESSION
