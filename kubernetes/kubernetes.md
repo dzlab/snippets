@@ -65,4 +65,12 @@ echo Storage account name: $STORAGE_ACCOUNT_NAME
 echo Storage account key: $STORAGE_KEY
 ```
 
+Create a Kubernetes secret
+```
+kubectl create secret generic azure-secret --from-literal=azurestorageaccountname=$STORAGE_ACCOUNT_NAME --from-literal=azurestorageaccountkey=$STORAGE_KEY
+```
+
+Mount file share as an inline volume
+
+
 https://docs.microsoft.com/en-us/azure/aks/azure-files-volume
