@@ -29,6 +29,11 @@ prometheus-prometheus-oper-operator-6d9c4bdb9f-4v77q     2/2     Running   0    
 prometheus-prometheus-prometheus-oper-prometheus-0       3/3     Running   1          32s
 ```
 
+Expose grafana externally with Load Balancer
+```
+$ kubectl expose deployment prometheus-grafana --port=3000 --target-port=3000 --name=grafana-service --type=LoadBalancer --namespace monitoring
+```
+
 Now deployServiceMonitors. Prometheus discovers ServiceMonitors by label. You need to know which ServiceMonitors label it is looking for (here `release: prometheus`). To do this:
 
 kubectl get prometheuses.monitoring.coreos.com -oyaml
