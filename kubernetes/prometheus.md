@@ -1,6 +1,11 @@
 # Prometheus
 
 ## With HELM
+### On EKS
+- https://aws-quickstart.github.io/quickstart-eks-prometheus/
+- https://www.eksworkshop.com/intermediate/240_monitoring/deploy-prometheus/
+
+
 ### Option 1
 See https://kruschecompany.com/kubernetes-prometheus-operator/
 
