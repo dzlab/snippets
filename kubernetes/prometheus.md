@@ -34,6 +34,13 @@ Expose grafana externally with Load Balancer
 $ kubectl expose deployment prometheus-grafana --port=3000 --target-port=3000 --name=grafana-service --type=LoadBalancer --namespace monitoring
 ```
 
+You can check it was exposed properly by locating the service
+```
+$ k get svc -n monitoring 
+NAME                                      TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)                      AGE
+grafana-service                           LoadBalancer   10.31.231.71    xx.xx.xx.xx   3000:30401/TCP               2m10s
+```
+
 Now deployServiceMonitors. Prometheus discovers ServiceMonitors by label. You need to know which ServiceMonitors label it is looking for (here `release: prometheus`). To do this:
 
 kubectl get prometheuses.monitoring.coreos.com -oyaml
