@@ -3,3 +3,6 @@ target/
 .idea/
 .DS_Store
 *.log
+.bsp/
+.metals/
+.vscode
