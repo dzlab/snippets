@@ -2,6 +2,7 @@ package haveibeenpwned
 
 import org.apache.calcite.config.Lex
 import org.apache.calcite.jdbc.CalciteConnection
+import util.{Table, TableRow}
 
 import java.sql.DriverManager
 import java.util.Properties
@@ -39,22 +40,24 @@ object Main {
         |LIMIT 3
         |""".stripMargin)
 
+    val rowsBuilder = Seq.newBuilder[TableRow]
+
     while (rs.next) {
       val count = rs.getLong("PwnCount")
       val name = rs.getString("Name")
       val domain = rs.getString("Domain")
       val breach = rs.getDate("BreachDate")
       val added = rs.getTimestamp("AddedDate")
-      println("name: " + name + "; count: " + count + "; domain: " + domain + "; breach: " + breach + "; added: " + added)
+      rowsBuilder += TableRow(Seq(name, String.valueOf(count), domain, String.valueOf(breach), String.valueOf(added)))
     }
     rs.close()
     statement.close()
-
-//    // Create the query planner with sales schema. conneciton.getSchema returns default schema name specified in sales.json
-//    val queryPlanner = new SimpleQueryPlanner(schema);
-//    RelNode loginalPlan = queryPlanner.getLogicalPlan("select product from orders");
-//    System.out.println(RelOptUtil.toString(loginalPlan));
-
     connection.close()
+
+    val headers = Seq("name", "count", "domain", "breach", "added")
+    val rows = rowsBuilder.result()
+
+    val table = new Table(headers, rows)
+    table.print()
   }
 }
