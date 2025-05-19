@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "ElasticsearchServer": {
+      "command": "/opt/homebrew/bin/uv",
+      "args": [
+		"--directory",
+		"/Applications/HOME/code/vibecoding/elasticsearch_mcp",
+        "run",
+        "server.py"
+      ]
+    }
+  }
+}

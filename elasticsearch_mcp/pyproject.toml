@@ -1,0 +1,12 @@
+[project]
+name = "elastic-mcp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "elastic>=5.2.5.3",
+    "elasticsearch>=9.0.1",
+    "mcp>=1.9.0",
+    "python-dotenv>=1.1.0",
+]
