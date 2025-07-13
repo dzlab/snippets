@@ -1,0 +1,11 @@
+[project]
+name = "pg-extras-mcp"
+version = "0.1.0"
+description = "A collection of PostgreSQL queries for database monitoring and performance tuning, exposed as an MCP application."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.11.0",
+    "psycopg2-binary>=2.9.10",
+    "python-dotenv>=1.1.1",
+]
