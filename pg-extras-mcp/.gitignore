@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual Environments
+.venv/
+.python-version
+uv.lock
+
+# Editor/IDE specific files
+.ropeproject/
+
+# Environments Virables
+.env
