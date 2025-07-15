@@ -19,11 +19,13 @@ class McpClient:
         )
         try:
             # Manually enter stdio_client and ClientSession contexts
+            # Enter stdio_client context
             self._stdio_client_context = stdio_client(server_params)
-            read, write = await asyncio.wait_for(self._stdio_client_context.__aenter__(), timeout=30.0)
+            read, write = await self._stdio_client_context.__aenter__()
 
+            # Enter ClientSession context
             self._client_session_context = ClientSession(read, write)
-            self.session = await asyncio.wait_for(self._client_session_context.__aenter__(), timeout=30.0)
+            self.session = await self._client_session_context.__aenter__()
 
             await self.session.initialize()
             response = await self.session.list_tools()
@@ -34,20 +36,21 @@ class McpClient:
             } for tool in response.tools]
             print("\nConnected to server with tools:", [tool.name for tool in response.tools])
             return self # Return self for 'as' clause in async with
-        except asyncio.TimeoutError:
-            # Ensure cleanup if timeout happens during __aenter__
-            if self.session and self._client_session_context:
-                await self._client_session_context.__aexit__(None, None, None)
-            if self._stdio_client_context:
-                await self._stdio_client_context.__aexit__(None, None, None)
-            raise Exception("Failed to connect to MCP server within the specified timeout.")
+        except Exception as e:
+            # Ensure cleanup if an error occurs during __aenter__
+            # Call __aexit__ to clean up any partially entered contexts
+            await self.__aexit__(None, None, None)
+            raise Exception(f"Failed to connect to MCP server: {e}")
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.session and self._client_session_context:
+        # Exit contexts in reverse order of entry
+        if self._client_session_context:
             await self._client_session_context.__aexit__(exc_type, exc_val, exc_tb)
         if self._stdio_client_context:
             await self._stdio_client_context.__aexit__(exc_type, exc_val, exc_tb)
-        self.session = None # Clear session on exit
+        self.session = None
+        self._stdio_client_context = None
+        self._client_session_context = None
 
     def _clean_schema(self, schema: Dict[str, Any]) -> Dict[str, Any]:
         """Recursively removes 'title' fields from a schema dictionary."""
