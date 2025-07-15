@@ -68,8 +68,29 @@ The queries were copied from the [ruby-pg-extras](https://github.com/pawurb/ruby
 
     This will start the FastMCP server, making the SQL queries available as tools.
 
-3.  **Interact with the tools**
+3.  **Interact with the server directly**
     You can use the tools exposed by FastMCP to execute the SQL queries.
+
+4.  **Use the Chatbot (Requires OpenAI API Key)**
+
+    This project also includes a chatbot interface that leverages OpenAI's API to interact with the SQL query tools.
+
+    *   **Configure OpenAI API connection:**
+        Set the following environment variables in your `.env` file:
+
+        ```
+        API_KEY=your_openai_api_key
+        BASE_URL=https://api.openai.com/v1 # Or your custom base URL
+        MODEL_ID=gpt-4o-mini # Or your preferred OpenAI model ID
+        ```
+
+    *   **Run the chatbot:**
+
+        ```bash
+        python client.py
+        ```
+
+        The chatbot will connect to the `server.py` automatically and provide a command-line interface for you to type queries. For example, you can ask questions like "Get all active users" or "Show me users with more than 10 orders". Type `quit` to exit the chatbot.
 
 ## Project Structure
 
