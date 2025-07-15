@@ -47,6 +47,7 @@ def execute_sql_query(query: str) -> List[dict]:
         print("PostgreSQL client is not initialized.")
         return []
 
+    results = []
     try:
         cur = pg.cursor()
         cur.execute(query)
@@ -56,12 +57,12 @@ def execute_sql_query(query: str) -> List[dict]:
         results = [dict(zip(column_names, row)) for row in cur.fetchall()]
         cur.close()
         pg.commit() # Commit changes if any, e.g., for INSERT/UPDATE/DELETE
-        return results
     except Exception as e:
         print(f"Error executing SQL query: {e}")
         if pg:
             pg.rollback() # Rollback in case of error
-        return []
+
+    return results
 
 def list_queries() -> List[dict]:
     """
