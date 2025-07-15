@@ -2,8 +2,8 @@ from dotenv import load_dotenv
 import os # Import the os module to access environment variables
 from typing import List, Dict, Any, Optional
 import asyncio
-from mcp_client import McpClient # Import the new McpClient class
-from openai_client import OpenAIClient
+from chatbot.mcp_client import McpClient # Import the new McpClient class
+from chatbot.openai_client import OpenAIClient
 import json # Import json for parsing tool arguments and content
 
 load_dotenv()
