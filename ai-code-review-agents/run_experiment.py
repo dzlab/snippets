@@ -11,13 +11,13 @@ except ImportError:
     def load_dotenv():
         return False
 
-from ai_code_review_agents.context import (
+from src.context import (
     build_selective_context_fn,
     chunk_repository,
     full_repository_context,
 )
-from ai_code_review_agents.data import SAMPLE_PRS, TOY_REPOSITORY
-from ai_code_review_agents.evaluation import evaluate_ensemble, evaluate_reviewer
+from src.data import SAMPLE_PRS, TOY_REPOSITORY
+from src.evaluation import evaluate_ensemble, evaluate_reviewer
 
 
 def parse_args() -> argparse.Namespace:

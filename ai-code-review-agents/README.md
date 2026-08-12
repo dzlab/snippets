@@ -13,10 +13,10 @@ The experiment compares four reviewer implementations against the same synthetic
 
 | File | Purpose |
 |---|---|
-| `ai_code_review_agents/data.py` | Synthetic FastAPI repository fixture and 15 flawed pull requests. |
-| `ai_code_review_agents/reviewers.py` | General reviewer, specialist reviewers, and ensemble combiner. |
-| `ai_code_review_agents/context.py` | AST chunking, embedding, Chroma indexing, and retrieval. |
-| `ai_code_review_agents/evaluation.py` | Keyword-overlap benchmark harness. |
+| `src/data.py` | Synthetic FastAPI repository fixture and 15 flawed pull requests. |
+| `src/reviewers.py` | General reviewer, specialist reviewers, and ensemble combiner. |
+| `src/context.py` | AST chunking, embedding, Chroma indexing, and retrieval. |
+| `src/evaluation.py` | Keyword-overlap benchmark harness. |
 | `run_experiment.py` | CLI entry point. |
 
 ## Run
@@ -52,4 +52,3 @@ python run_experiment.py --mode diff --limit 5
 python run_experiment.py --mode selective --n-results 8
 python run_experiment.py --mode ensemble --model gpt-4o-mini
 ```
-
