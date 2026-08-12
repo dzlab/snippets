@@ -6,3 +6,7 @@ target/
 .bsp/
 .metals/
 .vscode
+__pycache__/
+*.pyc
+.venv/
+.env
