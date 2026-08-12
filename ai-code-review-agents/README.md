@@ -18,37 +18,39 @@ The experiment compares four reviewer implementations against the same synthetic
 | `src/context.py` | AST chunking, embedding, Chroma indexing, and retrieval. |
 | `src/evaluation.py` | Keyword-overlap benchmark harness. |
 | `run_experiment.py` | CLI entry point. |
+| `pyproject.toml` | Project metadata and direct dependencies for `uv`. |
+| `uv.lock` | Reproducible dependency lockfile. |
 
 ## Run
 
+Install `uv` first if it is not already available.
+
 ```bash
 cd ~/co/github/dzlab/snippets/ai-code-review-agents
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+uv sync
 cp .env.example .env
 ```
 
 Edit `.env` and set `OPENAI_API_KEY`, then run:
 
 ```bash
-python run_experiment.py --dry-run
-python run_experiment.py --mode all --limit 3
-python run_experiment.py --mode all
+uv run python run_experiment.py --dry-run
+uv run python run_experiment.py --mode all --limit 3
+uv run python run_experiment.py --mode all
 ```
 
-Use `--limit` while iterating to reduce token usage. `--dry-run` validates fixture loading and chunking without making OpenAI API calls.
+`uv sync` creates the project virtual environment and installs dependencies. Use `--limit` while iterating to reduce token usage. `--dry-run` validates fixture loading and chunking without making OpenAI API calls.
 
 ## Options
 
 ```bash
-python run_experiment.py --help
+uv run python run_experiment.py --help
 ```
 
 Useful examples:
 
 ```bash
-python run_experiment.py --mode diff --limit 5
-python run_experiment.py --mode selective --n-results 8
-python run_experiment.py --mode ensemble --model gpt-4o-mini
+uv run python run_experiment.py --mode diff --limit 5
+uv run python run_experiment.py --mode selective --n-results 8
+uv run python run_experiment.py --mode ensemble --model gpt-4o-mini
 ```
