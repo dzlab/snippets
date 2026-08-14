@@ -2,6 +2,8 @@
 
 Runnable companion code for the AI code review article.
 
+Article: [AI Code Review: Context, Retrieval, and Specialized Review Agents](https://dzlab.github.io/genai/2026/08/11/ai-code-review-agents/)
+
 The experiment compares four reviewer implementations against the same synthetic benchmark:
 
 - diff-only reviewer
