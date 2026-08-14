@@ -162,6 +162,8 @@ def main():
         print(f"repository_chunks={len(chunks)}")
         print(f"pull_requests={len(prs)}")
         print(f"mode={args.mode}")
+        print(f"model={args.model}")
+        print(f"embedding_model={args.embedding_model}")
         return
 
     if not os.getenv("OPENAI_API_KEY"):
