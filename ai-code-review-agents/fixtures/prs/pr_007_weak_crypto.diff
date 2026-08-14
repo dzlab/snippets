@@ -1,0 +1,12 @@
+
+@@ -1,5 +1,6 @@
+ from fastapi import FastAPI
+ import hashlib
++import random
+
+ @app.post("/api/auth/reset-password")
+ def request_reset(email: str):
++    token = str(random.randint(100000, 999999))
++    db.save_reset_token(email, token)
++    send_email(email, f"Reset token: {token}")
+     return {"status": "sent"}

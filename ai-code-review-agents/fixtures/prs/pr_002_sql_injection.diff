@@ -1,0 +1,15 @@
+
+@@ -20,6 +20,14 @@ def list_users():
+     return db.get_all_users()
+
+
++@app.get("/api/users/search")
++def search_users(query: str):
++    sql = f"SELECT * FROM users WHERE name LIKE '%{query}%'"
++    results = db.execute(sql)
++    return results
++
++
+ @app.get("/api/users/{user_id}")
+ def get_user(user_id: int):
+     return db.get_user(user_id)

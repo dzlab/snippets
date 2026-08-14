@@ -1,0 +1,7 @@
+
+@@ -20,7 +20,8 @@ def get_user(user_id: int):
+     try:
+         return db.get_user(user_id)
+     except Exception as e:
+-        raise HTTPException(500, "Internal error")
++        raise HTTPException(500, f"Database error: {str(e)}")

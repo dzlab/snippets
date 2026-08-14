@@ -13,7 +13,9 @@ The experiment compares four reviewer implementations against the same synthetic
 
 | File | Purpose |
 |---|---|
-| `src/data.py` | Synthetic FastAPI repository fixture and 15 flawed pull requests. |
+| `fixtures/repository/` | File-backed synthetic FastAPI repository used as the review baseline. |
+| `fixtures/prs/` | The 15 flawed pull requests stored as standalone diff files. |
+| `src/data.py` | Fixture loaders plus PR metadata and expected issues. |
 | `src/reviewers.py` | General reviewer, specialist reviewers, and ensemble combiner. |
 | `src/context.py` | AST chunking, embedding, Chroma indexing, and retrieval. |
 | `src/evaluation.py` | Keyword-overlap benchmark harness. |

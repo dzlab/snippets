@@ -1,0 +1,11 @@
+
+@@ -10,8 +10,8 @@ def purchase_item(item_id: int, quantity: int):
+     inventory = db.get_inventory(item_id)
+-    if inventory.quantity < quantity:
++    if inventory.quantity >= quantity:
++        inventory.quantity -= quantity
++        db.save_inventory(inventory)
+-        raise HTTPException(400, "Insufficient stock")
+-    inventory.quantity -= quantity
+-    db.save_inventory(inventory)
+     return {"status": "purchased"}
