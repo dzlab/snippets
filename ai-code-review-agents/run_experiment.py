@@ -8,7 +8,7 @@ import os
 try:
     from dotenv import load_dotenv
 except ImportError:
-    def load_dotenv():
+    def load_dotenv(*_args, **_kwargs):
         return False
 
 from src.context import (
@@ -18,6 +18,21 @@ from src.context import (
 )
 from src.data import SAMPLE_PRS, TOY_REPOSITORY
 from src.evaluation import evaluate_ensemble, evaluate_reviewer
+
+
+def configure_tls_trust_store():
+    try:
+        import truststore
+    except ImportError:
+        return
+
+    truststore.inject_into_ssl()
+
+
+def load_environment():
+    load_dotenv()
+    if not os.getenv("OPENAI_API_KEY"):
+        load_dotenv(override=True)
 
 
 def parse_args() -> argparse.Namespace:
@@ -113,7 +128,8 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, dict]:
 
 
 def main():
-    load_dotenv()
+    configure_tls_trust_store()
+    load_environment()
     args = parse_args()
 
     chunks = chunk_repository(TOY_REPOSITORY)
