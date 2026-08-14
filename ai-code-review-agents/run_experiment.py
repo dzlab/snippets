@@ -35,6 +35,28 @@ def load_environment():
         load_dotenv(override=True)
 
 
+def describe_openai_error(exc: Exception) -> str | None:
+    text = str(exc)
+    code = getattr(exc, "code", None)
+
+    if code == "credit_balance_exhausted" or "credit_balance_exhausted" in text:
+        return (
+            "OpenAI API request failed: no credits remaining for the organization "
+            "or project tied to this API key. Add credits or use a key from a "
+            "funded project: https://platform.openai.com/settings/organization/billing/"
+        )
+
+    error_name = exc.__class__.__name__
+    if error_name == "AuthenticationError":
+        return "OpenAI API authentication failed. Check that OPENAI_API_KEY is valid."
+    if error_name == "PermissionDeniedError":
+        return "OpenAI API permission denied. Check the key's project and model permissions."
+    if error_name == "APIConnectionError":
+        return "OpenAI API connection failed. Check network access and local TLS certificate trust."
+
+    return None
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run AI code review reviewer comparisons.")
     parser.add_argument(
@@ -145,8 +167,14 @@ def main():
     if not os.getenv("OPENAI_API_KEY"):
         raise SystemExit("OPENAI_API_KEY is required. Set it in the environment or .env.")
 
-    for name, result in run_benchmark(args).items():
-        print_metrics(name, result)
+    try:
+        for name, result in run_benchmark(args).items():
+            print_metrics(name, result)
+    except Exception as exc:
+        message = describe_openai_error(exc)
+        if message:
+            raise SystemExit(message) from None
+        raise
 
 
 if __name__ == "__main__":
