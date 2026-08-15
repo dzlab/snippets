@@ -1,0 +1,16 @@
+
+@@ -10,3 +10,15 @@ def health_check():
+     return {"status": "healthy"}
++
++
++import logging
++logger = logging.getLogger(__name__)
++
++
++@app.post("/api/auth/login")
++def login(username: str, password: str):
++    user = db.authenticate(username, password)
++    if user:
++        return {"token": create_token(user)}
++    logger.warning(f"Failed login attempt: {username}:{password}")
++    raise HTTPException(401, "Invalid credentials")

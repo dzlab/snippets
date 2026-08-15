@@ -1,0 +1,10 @@
+
+@@ -20,3 +20,11 @@ def oauth_login():
+     return redirect_to_oauth()
++
++
++@app.get("/api/auth/callback")
++def oauth_callback(code: str, redirect_url: str):
++    token = exchange_code_for_token(code)
++    save_token(token)
++    return RedirectResponse(url=redirect_url)

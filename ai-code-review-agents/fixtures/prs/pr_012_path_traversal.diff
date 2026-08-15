@@ -1,0 +1,10 @@
+
+@@ -10,3 +10,9 @@ def upload_file(file: UploadFile):
+     save_file(file)
+     return {"status": "uploaded"}
++
++
++@app.get("/api/files/{filename}")
++def download_file(filename: str):
++    file_path = f"./uploads/{filename}"
++    return FileResponse(file_path)

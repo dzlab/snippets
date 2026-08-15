@@ -1,0 +1,22 @@
+
+@@ -1,8 +1,20 @@
+ from fastapi import FastAPI
++from fastapi.middleware.cors import CORSMiddleware
+
+ app = FastAPI()
+
++app.add_middleware(
++    CORSMiddleware,
++    allow_origins=["*"],
++    allow_credentials=True,
++    allow_methods=["*"],
++)
+
+ @app.get("/api/data")
+ def get_data():
++    return db.get_public_data()
++
++
++@app.get("/api/data/{data_id}")
++def get_data_by_id(data_id: int):
++    return db.get_data(data_id)

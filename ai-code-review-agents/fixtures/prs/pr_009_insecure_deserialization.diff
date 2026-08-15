@@ -1,0 +1,16 @@
+
+@@ -1,4 +1,5 @@
+ from fastapi import FastAPI, Cookie
++import pickle
+
+ @app.post("/api/session")
+ def save_session(data: dict):
++    session_data = pickle.dumps(data)
++    return {"session": session_data.hex()}
++
++
++@app.get("/api/session")
++def load_session(session: str):
++    session_data = bytes.fromhex(session)
++    data = pickle.loads(session_data)
++    return data

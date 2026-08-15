@@ -1,0 +1,7 @@
+
+@@ -10,3 +10,10 @@ def protected_endpoint(api_key: str = Header()):
++
++
++def validate_api_key(key: str) -> bool:
++    valid_key = os.getenv("API_KEY")
++    return key == valid_key

@@ -1,0 +1,11 @@
+
+@@ -15,3 +15,11 @@ def get_document(doc_id: int):
+     return db.get_document(doc_id)
++
++
++@app.post("/api/upload")
++def upload_file(file: UploadFile):
++    content = file.file.read()
++    save_path = f"./uploads/{file.filename}"
++    db.save_file(save_path, content)
++    return {"filename": file.filename, "size": len(content)}

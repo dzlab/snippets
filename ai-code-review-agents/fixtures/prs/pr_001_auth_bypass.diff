@@ -1,0 +1,14 @@
+
+@@ -15,6 +15,12 @@ def get_user(user_id: int):
+     return db.get_user(user_id)
+
+
++@app.put("/api/users/{user_id}")
++def update_user(user_id: int, profile: UserProfile):
++    db.update_user(user_id, profile)
++    return {"status": "success"}
++
++
+ @app.delete("/api/users/{user_id}")
+ def delete_user(user_id: int, current_user: User = Depends(get_current_user)):
+     if current_user.id != user_id and not current_user.is_admin:
