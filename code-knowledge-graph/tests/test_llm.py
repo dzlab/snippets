@@ -4,7 +4,12 @@ import unittest
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from codekg.llm import LLMRequestError, LLMResponseError, OpenAICompatibleClient
+from codekg.llm import (
+    LLMRequestError,
+    LLMResponseError,
+    MAX_RESPONSE_BYTES,
+    OpenAICompatibleClient,
+)
 
 
 @dataclass
@@ -86,6 +91,21 @@ class TestHTTPServer:
             )
         )
 
+    def enqueue_bytes(
+        self,
+        payload: bytes,
+        *,
+        status: int = 200,
+        content_type: str = "application/json",
+    ) -> None:
+        _TestHandler.responses.append(
+            (
+                status,
+                {"Content-Type": content_type},
+                payload,
+            )
+        )
+
     @property
     def requests(self) -> list[RecordedRequest]:
         return list(_TestHandler.requests)
@@ -138,6 +158,7 @@ class OpenAICompatibleClientTest(unittest.TestCase):
         self.assertEqual("application/json", request.headers["Content-Type"])
         self.assertEqual("openai/test-model", request.body["model"])
         self.assertEqual(0.25, request.body["temperature"])
+        self.assertEqual(256, request.body["max_tokens"])
 
         messages = request.body["messages"]
         self.assertEqual("system", messages[0]["role"])
@@ -227,6 +248,48 @@ class OpenAICompatibleClientTest(unittest.TestCase):
                     candidate_paths=["codekg/parser.py"],
                 )
 
+    def test_rank_files_raises_for_invalid_utf8_response_bytes(self):
+        with TestHTTPServer() as server:
+            server.enqueue_bytes(b"\xff\xfe\xfa")
+
+            client = OpenAICompatibleClient(base_url=server.base_url, model="local-model")
+
+            with self.assertRaisesRegex(LLMResponseError, "UTF-8"):
+                client.rank_files(
+                    task="Find parser code.",
+                    candidate_paths=["codekg/parser.py"],
+                )
+
+    def test_rank_files_raises_for_invalid_json_response_payload(self):
+        with TestHTTPServer() as server:
+            server.enqueue_bytes(b"{not valid json")
+
+            client = OpenAICompatibleClient(base_url=server.base_url, model="local-model")
+
+            with self.assertRaisesRegex(LLMResponseError, "valid JSON"):
+                client.rank_files(
+                    task="Find parser code.",
+                    candidate_paths=["codekg/parser.py"],
+                )
+
+    def test_rank_files_raises_for_non_object_top_level_json_payload(self):
+        with TestHTTPServer() as server:
+            for payload in (b"[]", b'"hello"'):
+                server.enqueue_bytes(payload)
+
+            client = OpenAICompatibleClient(base_url=server.base_url, model="local-model")
+
+            with self.assertRaisesRegex(LLMResponseError, "top-level JSON object"):
+                client.rank_files(
+                    task="Find parser code.",
+                    candidate_paths=["codekg/parser.py"],
+                )
+            with self.assertRaisesRegex(LLMResponseError, "top-level JSON object"):
+                client.rank_files(
+                    task="Find parser code.",
+                    candidate_paths=["codekg/parser.py"],
+                )
+
     def test_rank_files_raises_when_assistant_message_is_missing(self):
         with TestHTTPServer() as server:
             server.enqueue_json({"choices": [{"message": {"role": "user", "content": "hi"}}]})
@@ -283,6 +346,69 @@ class OpenAICompatibleClientTest(unittest.TestCase):
         self.assertIn("provider rejected key", message)
         self.assertNotIn("Bearer sk-test-secret", message)
         self.assertNotIn("sk-test-secret", message)
+
+    def test_rank_files_rejects_oversized_success_and_error_bodies(self):
+        oversized = b"x" * (MAX_RESPONSE_BYTES + 1)
+
+        with TestHTTPServer() as server:
+            server.enqueue_bytes(oversized)
+            client = OpenAICompatibleClient(base_url=server.base_url, model="local-model")
+
+            with self.assertRaisesRegex(LLMResponseError, "too large"):
+                client.rank_files(
+                    task="Find parser code.",
+                    candidate_paths=["codekg/parser.py"],
+                )
+
+        with TestHTTPServer() as server:
+            server.enqueue_bytes(oversized, status=502, content_type="text/plain; charset=utf-8")
+            client = OpenAICompatibleClient(base_url=server.base_url, model="local-model")
+
+            with self.assertRaisesRegex(LLMRequestError, "too large"):
+                client.rank_files(
+                    task="Find parser code.",
+                    candidate_paths=["codekg/parser.py"],
+                )
+
+    def test_rank_files_rejects_windows_drive_and_traversal_paths(self):
+        with TestHTTPServer() as server:
+            server.enqueue_json(
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": json.dumps(
+                                    {
+                                        "ranked_files": [
+                                            "C:\\repo\\file.py",
+                                            "..\\codekg\\parser.py",
+                                            "codekg\\..\\codekg\\parser.py",
+                                            ".\\codekg\\store.py",
+                                            "/codekg/retrieval.py",
+                                            "codekg/parser.py",
+                                        ]
+                                    }
+                                ),
+                            }
+                        }
+                    ]
+                }
+            )
+
+            client = OpenAICompatibleClient(base_url=server.base_url, model="local-model")
+            result = client.rank_files(
+                task="Find parser code.",
+                candidate_paths=[
+                    "codekg/parser.py",
+                    "codekg/store.py",
+                    "codekg/retrieval.py",
+                    "C:\\repo\\ignored.py",
+                    "..\\outside.py",
+                ],
+            )
+
+        self.assertEqual(["codekg/store.py", "codekg/parser.py"], result.files)
 
 
 if __name__ == "__main__":

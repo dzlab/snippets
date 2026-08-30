@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from urllib import error, request
 
+MAX_COMPLETION_TOKENS = 256
+MAX_RESPONSE_BYTES = 64 * 1024
+
 
 class LLMRequestError(RuntimeError):
     pass
@@ -47,6 +50,7 @@ class OpenAICompatibleClient:
         payload = {
             "model": self.model,
             "temperature": self.temperature,
+            "max_tokens": MAX_COMPLETION_TOKENS,
             "messages": self._build_messages(
                 task=task,
                 candidate_paths=inventory,
@@ -110,9 +114,26 @@ class OpenAICompatibleClient:
 
         try:
             with request.urlopen(http_request, timeout=self.timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
+                response_body = _read_limited(
+                    response,
+                    limit=MAX_RESPONSE_BYTES,
+                    error_type=LLMResponseError,
+                    message="OpenAI-compatible response body is too large",
+                )
+                return _decode_response_payload(response_body)
         except error.HTTPError as exc:
-            provider_body = exc.read().decode("utf-8", errors="replace")
+            try:
+                provider_body = _read_limited(
+                    exc,
+                    limit=MAX_RESPONSE_BYTES,
+                    error_type=LLMRequestError,
+                    message=(
+                        f"OpenAI-compatible request failed with status {exc.code}: "
+                        "provider error body is too large"
+                    ),
+                ).decode("utf-8", errors="replace")
+            finally:
+                exc.close()
             raise LLMRequestError(
                 f"OpenAI-compatible request failed with status {exc.code}: "
                 f"{_redact_secret(provider_body, self.api_key)}"
@@ -211,6 +232,9 @@ def _filter_ranked_files(ranked_files: list[object], inventory: list[str]) -> li
 
 
 def _normalize_relative_path(value: str) -> str | None:
+    if _has_windows_drive_prefix(value):
+        return None
+
     path = PurePosixPath(value.replace("\\", "/"))
     if path.is_absolute():
         return None
@@ -220,15 +244,47 @@ def _normalize_relative_path(value: str) -> str | None:
         if part in {"", "."}:
             continue
         if part == "..":
-            if not parts:
-                return None
-            parts.pop()
-            continue
+            return None
         parts.append(part)
 
     if not parts:
         return None
     return PurePosixPath(*parts).as_posix()
+
+
+def _has_windows_drive_prefix(value: str) -> bool:
+    return len(value) >= 2 and value[0].isalpha() and value[1] == ":"
+
+
+def _read_limited(
+    response,
+    *,
+    limit: int,
+    error_type: type[Exception],
+    message: str,
+) -> bytes:
+    body = response.read(limit + 1)
+    if len(body) > limit:
+        raise error_type(message)
+    return body
+
+
+def _decode_response_payload(raw_body: bytes) -> dict[str, object]:
+    try:
+        text = raw_body.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise LLMResponseError("OpenAI-compatible response body is not valid UTF-8") from exc
+
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise LLMResponseError("OpenAI-compatible response body is not valid JSON") from exc
+
+    if not isinstance(payload, dict):
+        raise LLMResponseError(
+            "OpenAI-compatible response body must be a top-level JSON object"
+        )
+    return payload
 
 
 def _redact_secret(value: str, secret: str | None) -> str:
