@@ -7,6 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from codekg.llm import (
     LLMRequestError,
     LLMResponseError,
+    MAX_REQUEST_BYTES,
     MAX_RESPONSE_BYTES,
     OpenAICompatibleClient,
 )
@@ -409,6 +410,19 @@ class OpenAICompatibleClientTest(unittest.TestCase):
             )
 
         self.assertEqual(["codekg/store.py", "codekg/parser.py"], result.files)
+
+    def test_rank_files_rejects_oversized_request_payload_before_network(self):
+        with TestHTTPServer() as server:
+            client = OpenAICompatibleClient(base_url=server.base_url, model="local-model")
+
+            with self.assertRaisesRegex(LLMRequestError, "request body is too large"):
+                client.rank_files(
+                    task="x" * (MAX_REQUEST_BYTES + 1),
+                    candidate_paths=["codekg/parser.py"],
+                    structure_map="y" * (MAX_REQUEST_BYTES + 1),
+                )
+
+        self.assertEqual([], server.requests)
 
 
 if __name__ == "__main__":

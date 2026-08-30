@@ -6,6 +6,7 @@ from pathlib import PurePosixPath
 from urllib import error, request
 
 MAX_COMPLETION_TOKENS = 256
+MAX_REQUEST_BYTES = 64 * 1024
 MAX_RESPONSE_BYTES = 64 * 1024
 
 
@@ -101,6 +102,8 @@ class OpenAICompatibleClient:
 
     def _post_json(self, path: str, payload: dict[str, object]) -> dict[str, object]:
         body = json.dumps(payload).encode("utf-8")
+        if len(body) > MAX_REQUEST_BYTES:
+            raise LLMRequestError("OpenAI-compatible request body is too large")
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
