@@ -189,6 +189,26 @@ class ScanRepositoryTest(unittest.TestCase):
             self.assertNotIn("broken.txt", file_paths)
             self.assertTrue(any("broken.txt" in warning for warning in graph.warnings))
 
+    def test_scan_repository_records_invalid_utf8_warning_for_non_python_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            self._write(repo / "ok.py", "def fine():\n    return 1\n")
+            invalid_path = repo / "broken.bintext"
+            invalid_path.write_bytes(b"\xff\xfehello")
+
+            graph = scan_repository(repo)
+
+            nodes_by_id = {node.id: node for node in graph.nodes}
+            self.assertIn("file:broken.bintext", nodes_by_id)
+            self.assertIn("file:ok.py", nodes_by_id)
+            self.assertIn("\ufffd", nodes_by_id["file:broken.bintext"].text)
+            self.assertTrue(
+                any(
+                    "broken.bintext" in warning and "UnicodeDecodeError" in warning
+                    for warning in graph.warnings
+                )
+            )
+
     def test_scan_repository_records_directory_walk_warning_and_continues(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
