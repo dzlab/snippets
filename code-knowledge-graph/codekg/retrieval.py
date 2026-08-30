@@ -48,6 +48,11 @@ def graph_rank(
     max_iterations: int = 50,
     tolerance: float = 1e-9,
 ) -> RankResult:
+    _validate_positive_integer("n_anchors", n_anchors)
+    _validate_damping(damping)
+    _validate_positive_integer("max_iterations", max_iterations)
+    _validate_non_negative_number("tolerance", tolerance)
+
     if not file_graph.nodes:
         return RankResult()
 
@@ -87,14 +92,16 @@ def graph_rank(
 
 
 def recall_at_k(items: list[str], gold_items: list[str], k: int) -> float:
-    if k <= 0 or not gold_items:
+    _validate_non_negative_integer("k", k)
+    if k == 0 or not gold_items:
         return 0.0
     gold = set(gold_items)
     return len(set(items[:k]) & gold) / len(gold)
 
 
 def ndcg_at_k(items: list[str], gold_items: list[str], k: int) -> float:
-    if k <= 0 or not gold_items:
+    _validate_non_negative_integer("k", k)
+    if k == 0 or not gold_items:
         return 0.0
 
     gold = set(gold_items)
@@ -120,20 +127,24 @@ def structure_map_markdown(
     max_neighbors_per_kind: int = 5,
     n_anchors: int = 3,
 ) -> str:
+    _validate_non_negative_integer("max_files", max_files)
+    _validate_non_negative_integer("max_neighbors_per_kind", max_neighbors_per_kind)
+    _validate_positive_integer("n_anchors", n_anchors)
+
     lexical = lexical_rank(query, file_graph)
     anchors = _top_anchors(lexical, n_anchors)
     visible_paths = {node.path for node in file_graph.nodes}
     files = [path for path in selected_files if path in visible_paths][:max_files]
 
     lines = [
-        f"Query: `{_escape_code(query)}`",
+        f"Query: {_format_code_span(query)}",
         f"Anchors: {_format_code_list(anchors) if anchors else '_none_'}",
         f"Selected Files: {_format_code_list(files) if files else '_none_'}",
     ]
 
     for path in files:
         lines.append("")
-        lines.append(f"### `{_escape_code(path)}`")
+        lines.append(f"### {_format_code_span(path)}")
         grouped_neighbors: dict[str, list[str]] = defaultdict(list)
         for neighbor in file_graph.adjacency.get(path, []):
             for label in file_graph.edge_labels.get((path, neighbor), ()):
@@ -190,7 +201,10 @@ def _build_transitions(
     transitions: dict[str, dict[str, float]] = {}
     for path in paths:
         weights = {
-            neighbor: file_graph.weights[(path, neighbor)]
+            neighbor: _validated_edge_weight(
+                file_graph.weights[(path, neighbor)],
+                f"{path}->{neighbor}",
+            )
             for neighbor in file_graph.adjacency.get(path, [])
             if (path, neighbor) in file_graph.weights
         }
@@ -206,9 +220,40 @@ def _build_transitions(
     return transitions
 
 
-def _escape_code(value: str) -> str:
-    return value.replace("`", "\\`")
-
-
 def _format_code_list(values: list[str]) -> str:
-    return ", ".join(f"`{_escape_code(value)}`" for value in values)
+    return ", ".join(_format_code_span(value) for value in values)
+
+
+def _format_code_span(value: str) -> str:
+    longest_run = max((len(match.group(0)) for match in re.finditer(r"`+", value)), default=0)
+    delimiter = "`" * (longest_run + 1)
+    return f"{delimiter}{value}{delimiter}"
+
+
+def _validated_edge_weight(weight: float, context: str) -> float:
+    numeric_weight = float(weight)
+    if not math.isfinite(numeric_weight) or numeric_weight <= 0.0:
+        raise ValueError(
+            f"edge weight must be finite and positive for {context}: {weight!r}"
+        )
+    return numeric_weight
+
+
+def _validate_non_negative_integer(name: str, value: int) -> None:
+    if value < 0:
+        raise ValueError(f"{name} must be non-negative")
+
+
+def _validate_positive_integer(name: str, value: int) -> None:
+    if value <= 0:
+        raise ValueError(f"{name} must be positive")
+
+
+def _validate_non_negative_number(name: str, value: float) -> None:
+    if value < 0:
+        raise ValueError(f"{name} must be non-negative")
+
+
+def _validate_damping(value: float) -> None:
+    if value < 0.0 or value >= 1.0:
+        raise ValueError("damping must be in [0, 1)")

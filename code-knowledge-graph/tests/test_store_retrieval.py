@@ -1,3 +1,4 @@
+import math
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,7 +12,7 @@ from codekg.retrieval import (
     structure_map_markdown,
     tokenize_identifier,
 )
-from codekg.store import counts, load_file_graph, open_store, replace_graph
+from codekg.store import FileGraph, counts, load_file_graph, open_store, replace_graph
 
 
 def sample_graph() -> ParsedGraph:
@@ -153,6 +154,27 @@ class StoreRoundTripTest(unittest.TestCase):
         self.assertEqual({}, file_graph.adjacency)
         self.assertEqual({}, file_graph.edge_labels)
 
+    def test_replace_graph_rejects_non_positive_and_non_finite_weights(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            conn = open_store(Path(tmpdir) / "graph.sqlite3")
+            self.addCleanup(conn.close)
+
+            for weight in (-1.0, 0.0, math.nan, math.inf):
+                bad_graph = ParsedGraph(
+                    nodes=[
+                        Node("file:a.py", "file", "a.py", "a.py", ""),
+                        Node("file:b.py", "file", "b.py", "b.py", ""),
+                    ],
+                    edges=[Edge("file:a.py", "file:b.py", "co_edit", weight=weight)],
+                    warnings=[],
+                )
+
+                with self.subTest(weight=weight):
+                    with self.assertRaisesRegex(ValueError, "weight"):
+                        replace_graph(conn, bad_graph)
+
+            self.assertEqual({"nodes": 0, "edges": 0}, counts(conn))
+
 
 class RetrievalTest(unittest.TestCase):
     def test_tokenize_identifier_splits_snake_case_and_paths(self):
@@ -252,12 +274,89 @@ class RetrievalTest(unittest.TestCase):
             max_neighbors_per_kind=2,
         )
 
-        self.assertIn("Query: `api \\`endpoint\\``", markdown)
+        self.assertIn("Query: ``api `endpoint```", markdown)
         self.assertIn("Anchors: `api.py`", markdown)
         self.assertIn("Selected Files: `api.py`, `service.py`, `database.py`", markdown)
         self.assertIn("- imports: `service.py`", markdown)
         self.assertIn("- calls: `api.py`, `database.py`", markdown)
         self.assertIn("- co_edit: `test_api.py`", markdown)
+
+    def test_graph_rank_rejects_invalid_weights_in_file_graph(self):
+        file_graph = FileGraph(
+            nodes=[
+                Node("file:a.py", "file", "a.py", "a.py", "anchor"),
+                Node("file:b.py", "file", "b.py", "b.py", "neighbor"),
+            ],
+            adjacency={"a.py": ["b.py"], "b.py": ["a.py"]},
+            edge_labels={
+                ("a.py", "b.py"): ("call",),
+                ("b.py", "a.py"): ("call",),
+            },
+            weights={
+                ("a.py", "b.py"): math.nan,
+                ("b.py", "a.py"): 1.0,
+            },
+        )
+
+        with self.assertRaisesRegex(ValueError, "weight"):
+            graph_rank("anchor", file_graph, n_anchors=1)
+
+    def test_structure_map_uses_markdown_safe_code_spans(self):
+        graph = ParsedGraph(
+            nodes=[
+                Node("file:api``v2.py", "file", "api``v2.py", "api``v2.py", "api text"),
+            ],
+            edges=[],
+            warnings=[],
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            conn = open_store(Path(tmpdir) / "safe.sqlite3")
+            self.addCleanup(conn.close)
+            replace_graph(conn, graph)
+            file_graph = load_file_graph(conn)
+
+        markdown = structure_map_markdown(
+            "api `v2`",
+            file_graph,
+            ["api``v2.py"],
+            max_files=1,
+            max_neighbors_per_kind=0,
+        )
+
+        self.assertIn("Query: ``api `v2```", markdown)
+        self.assertIn("Selected Files: ```api``v2.py```", markdown)
+        self.assertIn("### ```api``v2.py```", markdown)
+
+    def test_numeric_parameter_bounds_are_validated(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            conn = open_store(Path(tmpdir) / "bounds.sqlite3")
+            self.addCleanup(conn.close)
+            replace_graph(conn, sample_graph())
+            file_graph = load_file_graph(conn)
+
+        with self.assertRaisesRegex(ValueError, "k"):
+            recall_at_k(["api.py"], ["api.py"], -1)
+        with self.assertRaisesRegex(ValueError, "k"):
+            ndcg_at_k(["api.py"], ["api.py"], -1)
+        with self.assertRaisesRegex(ValueError, "n_anchors"):
+            graph_rank("api", file_graph, n_anchors=0)
+        with self.assertRaisesRegex(ValueError, "damping"):
+            graph_rank("api", file_graph, damping=1.0)
+        with self.assertRaisesRegex(ValueError, "max_iterations"):
+            graph_rank("api", file_graph, max_iterations=0)
+        with self.assertRaisesRegex(ValueError, "tolerance"):
+            graph_rank("api", file_graph, tolerance=-1.0)
+        with self.assertRaisesRegex(ValueError, "max_files"):
+            structure_map_markdown("api", file_graph, ["api.py"], max_files=-1)
+        with self.assertRaisesRegex(ValueError, "max_neighbors_per_kind"):
+            structure_map_markdown(
+                "api",
+                file_graph,
+                ["api.py"],
+                max_neighbors_per_kind=-1,
+            )
+        with self.assertRaisesRegex(ValueError, "n_anchors"):
+            structure_map_markdown("api", file_graph, ["api.py"], n_anchors=0)
 
 
 if __name__ == "__main__":

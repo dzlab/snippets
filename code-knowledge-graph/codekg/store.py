@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import sqlite3
 from collections import defaultdict
 from dataclasses import dataclass
@@ -64,7 +65,12 @@ def replace_graph(connection: sqlite3.Connection, graph: ParsedGraph) -> None:
         for node in graph.nodes
     ]
     edge_rows = [
-        (edge.src, edge.dst, edge.kind, float(edge.weight))
+        (
+            edge.src,
+            edge.dst,
+            edge.kind,
+            _validated_edge_weight(edge.weight, f"{edge.src}->{edge.dst}:{edge.kind}"),
+        )
         for edge in graph.edges
     ]
 
@@ -141,8 +147,12 @@ def load_file_graph(connection: sqlite3.Connection) -> FileGraph:
         if src_path not in file_paths or dst_path not in file_paths:
             continue
 
+        weight = _validated_edge_weight(
+            row["weight"],
+            f"{row['src']}->{row['dst']}:{row['kind']}",
+        )
         pair = _canonical_pair(src_path, dst_path)
-        undirected_weights[pair] += float(row["weight"])
+        undirected_weights[pair] += weight
         undirected_labels[pair].add(label)
 
     adjacency = {path: [] for path in sorted(file_paths)}
@@ -180,3 +190,12 @@ def _canonical_pair(left: str, right: str) -> tuple[str, str]:
 
 def _edge_kind_sort_key(kind: str) -> tuple[int, str]:
     return (_EDGE_KIND_ORDER.get(kind, len(_EDGE_KIND_ORDER)), kind)
+
+
+def _validated_edge_weight(weight: float, context: str) -> float:
+    numeric_weight = float(weight)
+    if not math.isfinite(numeric_weight) or numeric_weight <= 0.0:
+        raise ValueError(
+            f"edge weight must be finite and positive for {context}: {weight!r}"
+        )
+    return numeric_weight
