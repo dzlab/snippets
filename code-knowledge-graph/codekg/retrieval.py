@@ -227,6 +227,8 @@ def _format_code_list(values: list[str]) -> str:
 def _format_code_span(value: str) -> str:
     longest_run = max((len(match.group(0)) for match in re.finditer(r"`+", value)), default=0)
     delimiter = "`" * (longest_run + 1)
+    if value.startswith("`") or value.endswith("`"):
+        return f"{delimiter} {value} {delimiter}"
     return f"{delimiter}{value}{delimiter}"
 
 
@@ -250,10 +252,14 @@ def _validate_positive_integer(name: str, value: int) -> None:
 
 
 def _validate_non_negative_number(name: str, value: float) -> None:
+    if not math.isfinite(value):
+        raise ValueError(f"{name} must be finite")
     if value < 0:
         raise ValueError(f"{name} must be non-negative")
 
 
 def _validate_damping(value: float) -> None:
+    if not math.isfinite(value):
+        raise ValueError("damping must be finite")
     if value < 0.0 or value >= 1.0:
         raise ValueError("damping must be in [0, 1)")

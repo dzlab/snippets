@@ -5,6 +5,7 @@ from pathlib import Path
 
 from codekg.model import Edge, Node, ParsedGraph
 from codekg.retrieval import (
+    _format_code_span,
     graph_rank,
     lexical_rank,
     ndcg_at_k,
@@ -274,7 +275,7 @@ class RetrievalTest(unittest.TestCase):
             max_neighbors_per_kind=2,
         )
 
-        self.assertIn("Query: ``api `endpoint```", markdown)
+        self.assertIn("Query: `` api `endpoint` ``", markdown)
         self.assertIn("Anchors: `api.py`", markdown)
         self.assertIn("Selected Files: `api.py`, `service.py`, `database.py`", markdown)
         self.assertIn("- imports: `service.py`", markdown)
@@ -323,9 +324,14 @@ class RetrievalTest(unittest.TestCase):
             max_neighbors_per_kind=0,
         )
 
-        self.assertIn("Query: ``api `v2```", markdown)
+        self.assertIn("Query: `` api `v2` ``", markdown)
         self.assertIn("Selected Files: ```api``v2.py```", markdown)
         self.assertIn("### ```api``v2.py```", markdown)
+
+    def test_format_code_span_pads_boundary_backticks(self):
+        self.assertEqual("`` `leading ``", _format_code_span("`leading"))
+        self.assertEqual("`` trailing` ``", _format_code_span("trailing`"))
+        self.assertEqual("`` `both` ``", _format_code_span("`both`"))
 
     def test_numeric_parameter_bounds_are_validated(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -342,10 +348,18 @@ class RetrievalTest(unittest.TestCase):
             graph_rank("api", file_graph, n_anchors=0)
         with self.assertRaisesRegex(ValueError, "damping"):
             graph_rank("api", file_graph, damping=1.0)
+        with self.assertRaisesRegex(ValueError, "damping"):
+            graph_rank("api", file_graph, damping=math.nan)
+        with self.assertRaisesRegex(ValueError, "damping"):
+            graph_rank("api", file_graph, damping=math.inf)
         with self.assertRaisesRegex(ValueError, "max_iterations"):
             graph_rank("api", file_graph, max_iterations=0)
         with self.assertRaisesRegex(ValueError, "tolerance"):
             graph_rank("api", file_graph, tolerance=-1.0)
+        with self.assertRaisesRegex(ValueError, "tolerance"):
+            graph_rank("api", file_graph, tolerance=math.nan)
+        with self.assertRaisesRegex(ValueError, "tolerance"):
+            graph_rank("api", file_graph, tolerance=math.inf)
         with self.assertRaisesRegex(ValueError, "max_files"):
             structure_map_markdown("api", file_graph, ["api.py"], max_files=-1)
         with self.assertRaisesRegex(ValueError, "max_neighbors_per_kind"):
