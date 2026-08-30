@@ -1,0 +1,14 @@
+[
+  {
+    "query": "Which file scans the repository, parses Python ASTs, and builds graph nodes and edges?",
+    "gold_files": ["codekg/parser.py"]
+  },
+  {
+    "query": "Which file defines the SQLite-backed graph store and loads the projected file graph?",
+    "gold_files": ["codekg/store.py"]
+  },
+  {
+    "query": "Which file ranks candidate files and renders the structure map markdown for a query?",
+    "gold_files": ["codekg/retrieval.py"]
+  }
+]
