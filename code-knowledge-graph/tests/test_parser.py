@@ -189,6 +189,28 @@ class ScanRepositoryTest(unittest.TestCase):
             self.assertNotIn("broken.txt", file_paths)
             self.assertTrue(any("broken.txt" in warning for warning in graph.warnings))
 
+    def test_scan_repository_records_directory_walk_warning_and_continues(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            self._write(repo / "pkg" / "ok.py", "def fine():\n    return 1\n")
+            blocked_dir = repo / "blocked"
+            self._write(blocked_dir / "hidden.py", "def hidden():\n    return 1\n")
+
+            original_iterdir = Path.iterdir
+
+            def fake_iterdir(path_obj: Path):
+                if path_obj == blocked_dir:
+                    raise OSError("simulated walk failure")
+                return original_iterdir(path_obj)
+
+            with mock.patch.object(Path, "iterdir", autospec=True, side_effect=fake_iterdir):
+                graph = scan_repository(repo)
+
+            file_paths = {node.path for node in graph.nodes if node.kind == "file"}
+            self.assertIn("pkg/ok.py", file_paths)
+            self.assertNotIn("blocked/hidden.py", file_paths)
+            self.assertTrue(any("blocked" in warning for warning in graph.warnings))
+
     @staticmethod
     def _write(path: Path, content: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

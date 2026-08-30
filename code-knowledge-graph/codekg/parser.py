@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 from .model import Edge, Node, ParsedGraph
 
@@ -271,7 +272,11 @@ def scan_repository(repo_root: str | Path) -> ParsedGraph:
     module_file_ids: dict[str, str] = {}
     symbol_ids: dict[str, str] = {}
 
-    for file_path in _iter_repository_files(root):
+    def record_walk_error(path: Path, exc: OSError) -> None:
+        rel_path = path.relative_to(root).as_posix()
+        warnings.append(f"{rel_path}: {exc.__class__.__name__}: {exc}")
+
+    for file_path in _iter_repository_files(root, onerror=record_walk_error):
         rel_path = file_path.relative_to(root).as_posix()
 
         try:
@@ -334,14 +339,19 @@ def scan_repository(repo_root: str | Path) -> ParsedGraph:
     return ParsedGraph(nodes=nodes, edges=edges, warnings=sorted(warnings))
 
 
-def _iter_repository_files(repo_root: Path) -> list[Path]:
+def _iter_repository_files(
+    repo_root: Path,
+    onerror: Callable[[Path, OSError], None] | None = None,
+) -> list[Path]:
     files: list[Path] = []
     stack = [repo_root]
     while stack:
         current = stack.pop()
         try:
             children = sorted(current.iterdir(), key=lambda path: path.name)
-        except OSError:
+        except OSError as exc:
+            if onerror is not None:
+                onerror(current, exc)
             continue
 
         directories: list[Path] = []
