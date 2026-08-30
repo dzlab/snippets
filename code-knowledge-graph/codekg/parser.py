@@ -30,47 +30,6 @@ HIDDEN_DEPENDENCY_DIR_NAMES = {
     ".tox",
     ".yarn",
 }
-SOURCE_EXTENSIONS = {
-    "",
-    ".c",
-    ".cc",
-    ".cfg",
-    ".conf",
-    ".cpp",
-    ".css",
-    ".csv",
-    ".go",
-    ".h",
-    ".hpp",
-    ".html",
-    ".ini",
-    ".java",
-    ".js",
-    ".json",
-    ".jsx",
-    ".kt",
-    ".md",
-    ".php",
-    ".proto",
-    ".py",
-    ".pyi",
-    ".rb",
-    ".rs",
-    ".rst",
-    ".scss",
-    ".sh",
-    ".sql",
-    ".svg",
-    ".toml",
-    ".ts",
-    ".tsx",
-    ".txt",
-    ".xml",
-    ".yaml",
-    ".yml",
-    ".zsh",
-}
-SOURCE_FILENAMES = {"Dockerfile", "Makefile"}
 
 
 @dataclass
@@ -314,17 +273,13 @@ def scan_repository(repo_root: str | Path) -> ParsedGraph:
 
     for file_path in _iter_repository_files(root):
         rel_path = file_path.relative_to(root).as_posix()
-        if not _is_source_like(file_path):
-            continue
 
         try:
-            raw_bytes = _read_bounded_bytes(file_path)
-            if b"\x00" in raw_bytes:
-                continue
-            text = raw_bytes.decode("utf-8")
-        except (OSError, UnicodeDecodeError) as exc:
+            source_text, display_text, file_warnings = _read_text(file_path)
+        except OSError as exc:
             warnings.append(f"{rel_path}: {exc.__class__.__name__}: {exc}")
             continue
+        warnings.extend(f"{rel_path}: {warning}" for warning in file_warnings)
 
         file_node_id = f"file:{rel_path}"
         node_map[file_node_id] = Node(
@@ -332,14 +287,14 @@ def scan_repository(repo_root: str | Path) -> ParsedGraph:
             kind="file",
             path=rel_path,
             name=file_path.name,
-            text=text,
+            text=display_text,
         )
 
         if file_path.suffix != ".py":
             continue
 
         try:
-            tree = ast.parse(text, filename=rel_path)
+            tree = ast.parse(source_text, filename=rel_path)
         except SyntaxError as exc:
             warnings.append(f"{rel_path}: SyntaxError: {exc.msg}")
             continue
@@ -412,13 +367,36 @@ def _should_skip_dir(path: Path) -> bool:
     return any(token in name for token in dependency_tokens)
 
 
-def _is_source_like(path: Path) -> bool:
-    return path.name in SOURCE_FILENAMES or path.suffix.lower() in SOURCE_EXTENSIONS
-
-
-def _read_bounded_bytes(path: Path) -> bytes:
+def _read_text(path: Path) -> tuple[str, str, list[str]]:
     with path.open("rb") as handle:
-        return handle.read(MAX_TEXT_BYTES)
+        raw_bytes = handle.read()
+
+    warnings: list[str] = []
+    if b"\x00" in raw_bytes:
+        warnings.append("contains NUL bytes")
+
+    try:
+        source_text = raw_bytes.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        source_text = raw_bytes.decode("utf-8", errors="replace")
+        warnings.append(f"UnicodeDecodeError: {exc}")
+
+    return source_text, _truncate_text(source_text), warnings
+
+
+def _truncate_text(text: str) -> str:
+    if len(text.encode("utf-8")) <= MAX_TEXT_BYTES:
+        return text
+
+    lower = 0
+    upper = len(text)
+    while lower < upper:
+        midpoint = (lower + upper + 1) // 2
+        if len(text[:midpoint].encode("utf-8")) <= MAX_TEXT_BYTES:
+            lower = midpoint
+        else:
+            upper = midpoint - 1
+    return text[:lower]
 
 
 def _module_name_for_path(rel_path: str) -> str | None:

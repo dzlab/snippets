@@ -4,7 +4,6 @@ import subprocess
 from collections import Counter
 from itertools import combinations
 from pathlib import Path
-from typing import Iterable
 
 from .model import Edge
 from .parser import scan_repository
@@ -14,7 +13,6 @@ def co_edit_edges(
     repo_root: str | Path,
     max_commits: int,
     max_files_per_commit: int,
-    known_paths: Iterable[str] | None = None,
 ) -> list[Edge]:
     repo_path = Path(repo_root)
     command = [
@@ -38,15 +36,11 @@ def co_edit_edges(
     except (FileNotFoundError, OSError, subprocess.SubprocessError):
         return []
 
-    if known_paths is None:
-        graph = scan_repository(repo_path)
-        known_paths = {
-            node.path
-            for node in graph.nodes
-            if node.kind == "file"
-        }
-
-    normalized_paths = {_normalize_path(path) for path in known_paths}
+    normalized_paths = {
+        _normalize_path(node.path)
+        for node in scan_repository(repo_path).nodes
+        if node.kind == "file"
+    }
     pair_counts: Counter[tuple[str, str]] = Counter()
     blocks = result.stdout.split(b"\x1e")
 

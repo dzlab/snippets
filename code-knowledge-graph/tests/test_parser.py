@@ -1,7 +1,9 @@
 import subprocess
 import tempfile
 import unittest
+from inspect import signature
 from pathlib import Path
+from unittest import mock
 
 from codekg.git_history import co_edit_edges
 from codekg.parser import scan_repository
@@ -135,6 +137,58 @@ class ScanRepositoryTest(unittest.TestCase):
                 edge_keys,
             )
 
+    def test_scan_repository_keeps_arbitrary_readable_non_python_files(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            self._write(repo / "assets" / "schema.customext", "name: value\n")
+
+            graph = scan_repository(repo)
+
+            nodes_by_id = {node.id: node for node in graph.nodes}
+            file_node = nodes_by_id["file:assets/schema.customext"]
+            self.assertEqual("file", file_node.kind)
+            self.assertEqual("assets/schema.customext", file_node.path)
+            self.assertEqual("name: value\n", file_node.text)
+
+    def test_scan_repository_handles_long_utf8_python_files(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            prefix = "# " + ("é" * 100_001) + "\n"
+            self._write(
+                repo / "pkg" / "long_module.py",
+                prefix + "def trailing_symbol():\n    return 'ok'\n",
+            )
+
+            graph = scan_repository(repo)
+
+            nodes_by_id = {node.id: node for node in graph.nodes}
+            self.assertIn("file:pkg/long_module.py", nodes_by_id)
+            self.assertIn("symbol:pkg.long_module.trailing_symbol", nodes_by_id)
+            self.assertTrue(nodes_by_id["file:pkg/long_module.py"].text.endswith("é"))
+            self.assertEqual([], graph.warnings)
+
+    def test_scan_repository_records_oserror_warning_and_continues(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            self._write(repo / "ok.py", "def fine():\n    return 1\n")
+            failing_path = repo / "broken.txt"
+            self._write(failing_path, "ignored\n")
+
+            original_open = Path.open
+
+            def fake_open(path_obj: Path, *args, **kwargs):
+                if path_obj == failing_path and "rb" in args:
+                    raise OSError("simulated read failure")
+                return original_open(path_obj, *args, **kwargs)
+
+            with mock.patch.object(Path, "open", autospec=True, side_effect=fake_open):
+                graph = scan_repository(repo)
+
+            file_paths = {node.path for node in graph.nodes if node.kind == "file"}
+            self.assertIn("ok.py", file_paths)
+            self.assertNotIn("broken.txt", file_paths)
+            self.assertTrue(any("broken.txt" in warning for warning in graph.warnings))
+
     @staticmethod
     def _write(path: Path, content: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -142,6 +196,12 @@ class ScanRepositoryTest(unittest.TestCase):
 
 
 class CoEditEdgesTest(unittest.TestCase):
+    def test_co_edit_edges_public_signature_is_stable(self):
+        self.assertEqual(
+            ["repo_root", "max_commits", "max_files_per_commit"],
+            list(signature(co_edit_edges).parameters),
+        )
+
     def test_co_edit_edges_counts_pairs_deterministically(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
@@ -185,7 +245,6 @@ class CoEditEdgesTest(unittest.TestCase):
                 repo,
                 max_commits=10,
                 max_files_per_commit=3,
-                known_paths={"a.py", "b.py", "c.py"},
             )
 
             self.assertEqual(
