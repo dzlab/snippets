@@ -159,6 +159,210 @@ class CliIntegrationTest(unittest.TestCase):
             self.assertNotEqual(0, empty_query_result.returncode)
             self.assertIn("query", empty_query_result.stderr.lower())
 
+    def test_index_warns_when_git_history_is_unavailable(self):
+        project_root = Path(__file__).resolve().parents[1]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            repo_path = tmp_path / "repo"
+            db_path = tmp_path / "graph.sqlite3"
+
+            (repo_path / "pkg").mkdir(parents=True)
+            (repo_path / "pkg" / "module.py").write_text(
+                "def helper_value():\n    return 7\n",
+                encoding="utf-8",
+            )
+
+            result = self._run_cli(
+                project_root,
+                "index",
+                str(repo_path),
+                "--db",
+                str(db_path),
+            )
+
+            self.assertEqual(0, result.returncode, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertGreater(payload["counts"]["nodes"], 0)
+            self.assertTrue(
+                any("git co-edit history unavailable" in warning for warning in payload["warnings"])
+            )
+
+    def test_experiment_rejects_missing_gold_files_key(self):
+        project_root = Path(__file__).resolve().parents[1]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            repo_path = tmp_path / "repo"
+            db_path = tmp_path / "graph.sqlite3"
+            tasks_path = tmp_path / "tasks.json"
+
+            self._init_repo(repo_path)
+            self._index_repo(project_root, repo_path, db_path)
+            tasks_path.write_text(
+                json.dumps([{"query": "Which file defines helper_value?"}]),
+                encoding="utf-8",
+            )
+
+            result = self._run_cli(
+                project_root,
+                "experiment",
+                "--db",
+                str(db_path),
+                "--tasks",
+                str(tasks_path),
+            )
+
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("gold_files", result.stderr)
+
+    def test_experiment_rejects_invalid_gold_file_path(self):
+        project_root = Path(__file__).resolve().parents[1]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            repo_path = tmp_path / "repo"
+            db_path = tmp_path / "graph.sqlite3"
+            tasks_path = tmp_path / "tasks.json"
+
+            self._init_repo(repo_path)
+            self._index_repo(project_root, repo_path, db_path)
+            tasks_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "query": "Which file defines helper_value?",
+                            "gold_files": ["/tmp/pkg/helpers.py"],
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            result = self._run_cli(
+                project_root,
+                "experiment",
+                "--db",
+                str(db_path),
+                "--tasks",
+                str(tasks_path),
+            )
+
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("gold_files", result.stderr)
+            self.assertIn("/tmp/pkg/helpers.py", result.stderr)
+
+    def test_experiment_rejects_gold_file_missing_from_index(self):
+        project_root = Path(__file__).resolve().parents[1]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            repo_path = tmp_path / "repo"
+            db_path = tmp_path / "graph.sqlite3"
+            tasks_path = tmp_path / "tasks.json"
+
+            self._init_repo(repo_path)
+            self._index_repo(project_root, repo_path, db_path)
+            tasks_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "query": "Which file defines helper_value?",
+                            "gold_files": ["pkg/missing.py"],
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            result = self._run_cli(
+                project_root,
+                "experiment",
+                "--db",
+                str(db_path),
+                "--tasks",
+                str(tasks_path),
+            )
+
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("task 0", result.stderr)
+            self.assertIn("pkg/missing.py", result.stderr)
+
+    def test_ab_rejects_unindexed_gold_file_and_output_write_errors(self):
+        project_root = Path(__file__).resolve().parents[1]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            repo_path = tmp_path / "repo"
+            db_path = tmp_path / "graph.sqlite3"
+            tasks_path = tmp_path / "tasks.json"
+            output_dir = tmp_path / "output-dir"
+
+            self._init_repo(repo_path)
+            self._index_repo(project_root, repo_path, db_path)
+
+            tasks_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "query": "Which file defines helper_value?",
+                            "gold_files": ["pkg/missing.py"],
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            output_dir.mkdir()
+
+            missing_gold_result = self._run_cli(
+                project_root,
+                "ab",
+                "--db",
+                str(db_path),
+                "--tasks",
+                str(tasks_path),
+                "--base-url",
+                "http://127.0.0.1:9999",
+                "--model",
+                "local-model",
+                "--dry-run",
+            )
+
+            self.assertNotEqual(0, missing_gold_result.returncode)
+            self.assertIn("pkg/missing.py", missing_gold_result.stderr)
+
+            tasks_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "query": "Which file defines helper_value?",
+                            "gold_files": ["pkg/helpers.py"],
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            output_error_result = self._run_cli(
+                project_root,
+                "ab",
+                "--db",
+                str(db_path),
+                "--tasks",
+                str(tasks_path),
+                "--base-url",
+                "http://127.0.0.1:9999",
+                "--model",
+                "local-model",
+                "--dry-run",
+                "--output",
+                str(output_dir),
+            )
+
+            self.assertNotEqual(0, output_error_result.returncode)
+            self.assertIn("output", output_error_result.stderr.lower())
+            self.assertNotIn("Traceback", output_error_result.stderr)
+
     def _run_cli(self, project_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             [sys.executable, "-m", "codekg", *args],
@@ -167,6 +371,20 @@ class CliIntegrationTest(unittest.TestCase):
             capture_output=True,
             text=True,
         )
+
+    def _index_repo(self, project_root: Path, repo_path: Path, db_path: Path) -> None:
+        result = self._run_cli(
+            project_root,
+            "index",
+            str(repo_path),
+            "--db",
+            str(db_path),
+            "--max-commits",
+            "10",
+            "--max-files-per-commit",
+            "10",
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
 
     def _init_repo(self, repo_path: Path) -> None:
         (repo_path / "pkg").mkdir(parents=True)

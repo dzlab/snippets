@@ -21,7 +21,7 @@ codekg --help
 
 ## Index Any GitHub Checkout
 
-`index` scans repository files with the parser, extracts co-edit edges from Git history, and writes the full graph into a SQLite database.
+`index` scans repository files with the parser, extracts co-edit edges from Git history when available, and writes the full graph into a SQLite database.
 
 ```bash
 python3 -m codekg index /path/to/github-checkout \
@@ -30,7 +30,7 @@ python3 -m codekg index /path/to/github-checkout \
   --max-files-per-commit 50
 ```
 
-The output is JSON with graph counts and parser warnings. Paths are resolved from the repository path you pass to `index`, so the same command works for any local GitHub checkout.
+The output is JSON with graph counts and parser warnings. If the target directory is not a Git working tree, indexing still succeeds from the parser alone and the warning list includes a clear `git co-edit history unavailable` message. Paths are resolved from the repository path you pass to `index`, so the same command works for any local GitHub checkout.
 
 The database is a normal SQLite file. Re-running `index` replaces the stored graph contents in that file.
 
@@ -60,7 +60,7 @@ If the DB file is missing or the query is empty, the CLI exits with a concise er
 
 ## Task File Format
 
-Offline experiments and A/B runs both read a JSON array of tasks. Each task must provide an explicit `query` and `gold_files`.
+Offline experiments and A/B runs both read a JSON array of tasks. Each task must provide a non-empty `query` and a non-empty `gold_files` list.
 
 ```json
 [
@@ -75,7 +75,7 @@ Offline experiments and A/B runs both read a JSON array of tasks. Each task must
 ]
 ```
 
-`gold_files` must use repository-relative POSIX paths that match the indexed checkout.
+`gold_files` must use repository-relative POSIX paths that match the indexed checkout. Absolute paths, `..` traversal, Windows drive prefixes, empty lists, and paths missing from the indexed graph are rejected with a CLI error before `experiment` or `ab` runs.
 
 ## Offline Experiment
 
@@ -128,7 +128,7 @@ export OPENAI_MODEL=qwen2.5-coder:14b
 python3 -m codekg ab --db /tmp/codekg.sqlite3 --tasks examples/tasks.json --dry-run
 ```
 
-`ab` records the arm, task index, run number, candidate inventory, ranked files, recall metrics, usage, and any request/response error string. `--output` writes the same JSON payload to disk.
+`ab` records the arm, task index, run number, candidate inventory, ranked files, recall metrics, usage, and any request/response error string. `--output` writes the same JSON payload to disk and reports a concise CLI error if the output target cannot be written.
 
 ## Privacy And Cost
 

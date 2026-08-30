@@ -5,8 +5,9 @@ import json
 import os
 import random
 import sqlite3
+import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from .git_history import co_edit_edges
 from .llm import LLMRequestError, LLMResponseError, OpenAICompatibleClient
@@ -154,18 +155,24 @@ def _handle_index(args: argparse.Namespace) -> int:
     _validated_positive_integer("--max-files-per-commit", args.max_files_per_commit)
 
     parsed_graph = scan_repository(repo_path)
+    warnings = list(parsed_graph.warnings)
+    git_history_warning = _git_history_warning(repo_path)
+    co_edit_graph_edges = []
+    if git_history_warning is None:
+        co_edit_graph_edges = co_edit_edges(
+            repo_path,
+            max_commits=args.max_commits,
+            max_files_per_commit=args.max_files_per_commit,
+        )
+    else:
+        warnings.append(git_history_warning)
     graph = ParsedGraph(
         nodes=parsed_graph.nodes,
         edges=sorted(
-            parsed_graph.edges
-            + co_edit_edges(
-                repo_path,
-                max_commits=args.max_commits,
-                max_files_per_commit=args.max_files_per_commit,
-            ),
+            parsed_graph.edges + co_edit_graph_edges,
             key=lambda edge: (edge.kind, edge.src, edge.dst, edge.weight),
         ),
-        warnings=sorted(parsed_graph.warnings),
+        warnings=sorted(warnings),
     )
 
     connection = open_store(db_path)
@@ -224,6 +231,8 @@ def _handle_experiment(args: argparse.Namespace) -> int:
     anchors = _validated_positive_integer("--anchors", args.anchors)
     file_graph = _load_file_graph(args.db)
     tasks = _load_tasks(args.tasks)
+    indexed_paths = {node.path for node in file_graph.nodes}
+    _validate_tasks_against_inventory(tasks, indexed_paths)
 
     task_rows: list[dict[str, object]] = []
     lexical_metrics_list: list[dict[str, float]] = []
@@ -233,7 +242,7 @@ def _handle_experiment(args: argparse.Namespace) -> int:
     for index, task in enumerate(tasks):
         lexical = lexical_rank(task.query, file_graph)
         graph = graph_rank(task.query, file_graph, n_anchors=anchors)
-        visible_gold = [path for path in task.gold_files if path in {node.path for node in file_graph.nodes}]
+        visible_gold = list(task.gold_files)
 
         lexical_metrics = _metric_payload(lexical.items, visible_gold, available_file_count)
         graph_metrics = _metric_payload(graph.items, visible_gold, available_file_count)
@@ -268,6 +277,7 @@ def _handle_ab(args: argparse.Namespace) -> int:
     file_graph = _load_file_graph(args.db)
     tasks = _load_tasks(args.tasks)
     file_paths = [node.path for node in file_graph.nodes]
+    _validate_tasks_against_inventory(tasks, set(file_paths))
     arm_rng = random.Random(args.seed)
 
     if not args.dry_run:
@@ -299,7 +309,7 @@ def _handle_ab(args: argparse.Namespace) -> int:
                 max_files=k,
                 n_anchors=anchors,
             )
-            visible_gold = [path for path in task.gold_files if path in file_paths]
+            visible_gold = list(task.gold_files)
             arm_order = list(ARM_ORDER)
             arm_rng.shuffle(arm_order)
 
@@ -338,8 +348,11 @@ def _handle_ab(args: argparse.Namespace) -> int:
     }
     if args.output:
         output_path = Path(args.output).expanduser().resolve()
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(_json_text(payload), encoding="utf-8")
+        try:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(_json_text(payload), encoding="utf-8")
+        except OSError as exc:
+            raise CliError(f"output write failed: {output_path}: {exc.strerror or exc}") from exc
     _emit_json(payload)
     return 0
 
@@ -457,14 +470,33 @@ def _load_tasks(tasks_path: str | Path) -> list[Task]:
     for index, item in enumerate(payload):
         if not isinstance(item, dict):
             raise CliError(f"task {index} must be an object")
-        query = item.get("query")
-        gold_files = item.get("gold_files", [])
+        if "query" not in item:
+            raise CliError(f"task {index} missing query")
+        if "gold_files" not in item:
+            raise CliError(f"task {index} missing gold_files")
+
+        query = item["query"]
+        gold_files = item["gold_files"]
         if not isinstance(query, str):
             raise CliError(f"task {index} query must be a string")
-        if not isinstance(gold_files, list) or any(not isinstance(path, str) for path in gold_files):
-            raise CliError(f"task {index} gold_files must be an array of strings")
-        tasks.append(Task(query=_validated_query(query), gold_files=list(gold_files)))
+        if not isinstance(gold_files, list) or not gold_files:
+            raise CliError(f"task {index} gold_files must be a non-empty array of strings")
+
+        normalized_gold_files: list[str] = []
+        for gold_file in gold_files:
+            if not isinstance(gold_file, str):
+                raise CliError(f"task {index} gold_files must be a non-empty array of strings")
+            normalized_gold_files.append(_validate_gold_file_path(index, gold_file))
+
+        tasks.append(Task(query=_validated_query(query), gold_files=normalized_gold_files))
     return tasks
+
+
+def _validate_tasks_against_inventory(tasks: list[Task], indexed_paths: set[str]) -> None:
+    for index, task in enumerate(tasks):
+        for gold_file in task.gold_files:
+            if gold_file not in indexed_paths:
+                raise CliError(f"task {index} gold_file not found in indexed graph: {gold_file}")
 
 
 def _metric_payload(items: list[str], gold_items: list[str], available_file_count: int) -> dict[str, float]:
@@ -505,3 +537,51 @@ def _emit_json(payload: dict[str, object]) -> None:
 
 def _json_text(payload: dict[str, object]) -> str:
     return json.dumps(payload, indent=2, sort_keys=True)
+
+
+def _validate_gold_file_path(task_index: int, raw_path: str) -> str:
+    if _has_windows_drive_prefix(raw_path):
+        raise CliError(f"task {task_index} gold_files contains invalid path: {raw_path}")
+
+    posix_path = PurePosixPath(raw_path.replace("\\", "/"))
+    if posix_path.is_absolute():
+        raise CliError(f"task {task_index} gold_files contains invalid path: {raw_path}")
+
+    parts: list[str] = []
+    for part in posix_path.parts:
+        if part in {"", "."}:
+            continue
+        if part == "..":
+            raise CliError(f"task {task_index} gold_files contains invalid path: {raw_path}")
+        parts.append(part)
+
+    if not parts:
+        raise CliError(f"task {task_index} gold_files contains invalid path: {raw_path}")
+    return PurePosixPath(*parts).as_posix()
+
+
+def _has_windows_drive_prefix(value: str) -> bool:
+    return len(value) >= 2 and value[0].isalpha() and value[1] == ":"
+
+
+def _git_history_warning(repo_path: Path) -> str | None:
+    command = [
+        "git",
+        "-C",
+        str(repo_path),
+        "rev-parse",
+        "--is-inside-work-tree",
+    ]
+    try:
+        result = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, OSError) as exc:
+        return f"git co-edit history unavailable: {exc}"
+
+    if result.returncode == 0 and result.stdout.strip() == "true":
+        return None
+    return "git co-edit history unavailable: repository is not a Git working tree"
