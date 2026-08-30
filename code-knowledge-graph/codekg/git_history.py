@@ -47,7 +47,7 @@ def co_edit_edges(
     for block in blocks:
         all_commit_paths = sorted(
             {
-                _normalize_path(entry.decode("utf-8").strip())
+                _normalize_path(entry.decode("utf-8", errors="surrogateescape").strip())
                 for entry in block.split(b"\x00")
                 if entry.strip()
             }

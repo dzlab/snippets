@@ -2,10 +2,12 @@ import subprocess
 import tempfile
 import unittest
 from inspect import signature
+from io import BytesIO
 from pathlib import Path
 from unittest import mock
 
 from codekg.git_history import co_edit_edges
+from codekg.model import Node, ParsedGraph
 from codekg.parser import scan_repository
 
 
@@ -137,6 +139,32 @@ class ScanRepositoryTest(unittest.TestCase):
                 edge_keys,
             )
 
+    def test_scan_repository_resolves_dotted_import_calls(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            self._write(repo / "pkg" / "__init__.py", "")
+            self._write(repo / "pkg" / "util.py", "def helper():\n    return 1\n")
+            self._write(
+                repo / "consumer.py",
+                (
+                    "import pkg.util\n\n"
+                    "def use_helper():\n"
+                    "    return pkg.util.helper()\n"
+                ),
+            )
+
+            graph = scan_repository(repo)
+            edge_keys = {(edge.src, edge.dst, edge.kind) for edge in graph.edges}
+
+            self.assertIn(
+                ("file:consumer.py", "file:pkg/util.py", "imports"),
+                edge_keys,
+            )
+            self.assertIn(
+                ("symbol:consumer.use_helper", "symbol:pkg.util.helper", "calls"),
+                edge_keys,
+            )
+
     def test_scan_repository_keeps_arbitrary_readable_non_python_files(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
@@ -209,6 +237,26 @@ class ScanRepositoryTest(unittest.TestCase):
                 )
             )
 
+    def test_scan_repository_skips_symlinked_paths(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            repo = root / "repo"
+            outside = root / "outside"
+            self._write(repo / "pkg" / "ok.py", "def fine():\n    return 1\n")
+            self._write(outside / "secret.py", "def hidden():\n    return 1\n")
+            self._write(outside / "nested" / "more.py", "def nested():\n    return 1\n")
+            (repo / "outside-link.py").symlink_to(outside / "secret.py")
+            (repo / "outside-dir").symlink_to(outside / "nested", target_is_directory=True)
+            (repo / "cycle").symlink_to(repo, target_is_directory=True)
+
+            graph = scan_repository(repo)
+
+            file_paths = {node.path for node in graph.nodes if node.kind == "file"}
+            self.assertIn("pkg/ok.py", file_paths)
+            self.assertNotIn("outside-link.py", file_paths)
+            self.assertNotIn("outside-dir/more.py", file_paths)
+            self.assertNotIn("cycle/pkg/ok.py", file_paths)
+
     def test_scan_repository_records_directory_walk_warning_and_continues(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
@@ -230,6 +278,38 @@ class ScanRepositoryTest(unittest.TestCase):
             self.assertIn("pkg/ok.py", file_paths)
             self.assertNotIn("blocked/hidden.py", file_paths)
             self.assertTrue(any("blocked" in warning for warning in graph.warnings))
+
+    def test_scan_repository_bounds_large_non_python_reads(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            large_path = repo / "large.data"
+            large_bytes = b"x" * 500_000
+            self._write(repo / "ok.py", "def fine():\n    return 1\n")
+            large_path.write_bytes(large_bytes)
+
+            original_open = Path.open
+            observed_sizes: list[int] = []
+
+            class TrackingReader(BytesIO):
+                def read(self, size: int = -1) -> bytes:
+                    observed_sizes.append(size)
+                    if size < 0:
+                        raise AssertionError("unbounded read")
+                    return super().read(size)
+
+            def fake_open(path_obj: Path, *args, **kwargs):
+                if path_obj == large_path and "rb" in args:
+                    return TrackingReader(large_bytes)
+                return original_open(path_obj, *args, **kwargs)
+
+            with mock.patch.object(Path, "open", autospec=True, side_effect=fake_open):
+                graph = scan_repository(repo)
+
+            self.assertTrue(observed_sizes)
+            self.assertTrue(all(size <= 200_001 for size in observed_sizes))
+            nodes_by_id = {node.id: node for node in graph.nodes}
+            self.assertIn("file:large.data", nodes_by_id)
+            self.assertEqual(200_000, len(nodes_by_id["file:large.data"].text))
 
     @staticmethod
     def _write(path: Path, content: str) -> None:
@@ -301,6 +381,32 @@ class CoEditEdgesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             edges = co_edit_edges(Path(tmpdir), max_commits=5, max_files_per_commit=5)
             self.assertEqual([], edges)
+
+    def test_co_edit_edges_handles_non_utf8_git_filenames(self):
+        repo = Path("/tmp/non-git")
+        invalid_name = b"bad-\xff.py".decode("utf-8", errors="surrogateescape")
+        git_output = b"\x1e\x00a.py\x00bad-\xff.py\x00"
+
+        with (
+            mock.patch("codekg.git_history.subprocess.run") as run_mock,
+            mock.patch("codekg.git_history.scan_repository") as scan_mock,
+        ):
+            run_mock.return_value = mock.Mock(stdout=git_output)
+            scan_mock.return_value = ParsedGraph(
+                nodes=[
+                    Node(id="file:a.py", kind="file", path="a.py", name="a.py"),
+                    Node(id=f"file:{invalid_name}", kind="file", path=invalid_name, name=invalid_name),
+                ],
+                edges=[],
+                warnings=[],
+            )
+
+            edges = co_edit_edges(repo, max_commits=5, max_files_per_commit=5)
+
+        self.assertEqual(
+            [("file:a.py", f"file:{invalid_name}", "co_edit", 1.0)],
+            [(edge.src, edge.dst, edge.kind, edge.weight) for edge in edges],
+        )
 
     @staticmethod
     def _init_git_repo(repo: Path) -> None:

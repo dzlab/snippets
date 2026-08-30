@@ -8,6 +8,7 @@ from typing import Callable
 from .model import Edge, Node, ParsedGraph
 
 MAX_TEXT_BYTES = 200_000
+MAX_FULL_PYTHON_BYTES = 1_000_000
 IGNORED_DIR_NAMES = {
     ".git",
     ".venv",
@@ -143,7 +144,6 @@ class ReferenceResolver(ast.NodeVisitor):
         for alias in node.names:
             module_name = alias.name
             if module_name in self.module_file_ids:
-                current_scope.imported_modules[alias.asname or module_name.split(".")[-1]] = module_name
                 self.edge_keys.add(
                     (
                         self.file_info.file_node_id,
@@ -151,6 +151,8 @@ class ReferenceResolver(ast.NodeVisitor):
                         "imports",
                     )
                 )
+            bound_name, bound_module = _bound_import(alias)
+            current_scope.imported_modules[bound_name] = bound_module
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         current_scope = self.scope_stack[-1]
@@ -223,20 +225,23 @@ class ReferenceResolver(ast.NodeVisitor):
         if isinstance(node, ast.Name):
             return self._resolve_name(node.id)
 
-        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
-            base_name = node.value.id
+        if isinstance(node, ast.Attribute):
+            if isinstance(node.value, ast.Name):
+                base_name = node.value.id
 
-            if base_name in {"self", "cls"}:
-                class_qname = self._current_class_qname()
-                if class_qname is not None:
-                    return self.symbol_ids.get(f"{class_qname}.{node.attr}")
+                if base_name in {"self", "cls"}:
+                    class_qname = self._current_class_qname()
+                    if class_qname is not None:
+                        return self.symbol_ids.get(f"{class_qname}.{node.attr}")
 
-            module_name = self._resolve_module_alias(base_name)
+            module_name = self._resolve_module_reference(node.value)
             if module_name is not None:
                 return self.symbol_ids.get(f"{module_name}.{node.attr}")
 
-            symbol_id = self._resolve_name(base_name)
-            if symbol_id is not None:
+            if isinstance(node.value, ast.Name):
+                symbol_id = self._resolve_name(node.value.id)
+                if symbol_id is None:
+                    return None
                 symbol_qname = symbol_id.removeprefix("symbol:")
                 return self.symbol_ids.get(f"{symbol_qname}.{node.attr}")
 
@@ -254,6 +259,23 @@ class ReferenceResolver(ast.NodeVisitor):
         for scope in reversed(self.scope_stack):
             if name in scope.imported_modules:
                 return scope.imported_modules[name]
+        return None
+
+    def _resolve_module_reference(self, node: ast.AST) -> str | None:
+        if isinstance(node, ast.Name):
+            return self._resolve_module_alias(node.id)
+
+        if isinstance(node, ast.Attribute):
+            base_module = self._resolve_module_reference(node.value)
+            if base_module is None:
+                return None
+            candidate = f"{base_module}.{node.attr}"
+            if (
+                candidate in self.module_file_ids
+                or any(symbol_name.startswith(f"{candidate}.") for symbol_name in self.symbol_ids)
+            ):
+                return candidate
+
         return None
 
     def _current_class_qname(self) -> str | None:
@@ -279,8 +301,13 @@ def scan_repository(repo_root: str | Path) -> ParsedGraph:
     for file_path in _iter_repository_files(root, onerror=record_walk_error):
         rel_path = file_path.relative_to(root).as_posix()
 
+        is_python = file_path.suffix == ".py"
+
         try:
-            source_text, display_text, file_warnings = _read_text(file_path)
+            source_text, display_text, file_warnings = _read_text(
+                file_path,
+                read_full_source=is_python,
+            )
         except OSError as exc:
             warnings.append(f"{rel_path}: {exc.__class__.__name__}: {exc}")
             continue
@@ -295,7 +322,7 @@ def scan_repository(repo_root: str | Path) -> ParsedGraph:
             text=display_text,
         )
 
-        if file_path.suffix != ".py":
+        if not is_python:
             continue
 
         try:
@@ -356,6 +383,8 @@ def _iter_repository_files(
 
         directories: list[Path] = []
         for child in children:
+            if child.is_symlink():
+                continue
             if child.is_dir():
                 if not _should_skip_dir(child):
                     directories.append(child)
@@ -377,9 +406,19 @@ def _should_skip_dir(path: Path) -> bool:
     return any(token in name for token in dependency_tokens)
 
 
-def _read_text(path: Path) -> tuple[str, str, list[str]]:
+def _read_text(
+    path: Path,
+    *,
+    read_full_source: bool,
+) -> tuple[str, str, list[str]]:
+    file_size = path.stat().st_size
+    should_read_full = read_full_source and file_size <= MAX_FULL_PYTHON_BYTES
+
     with path.open("rb") as handle:
-        raw_bytes = handle.read()
+        if should_read_full:
+            raw_bytes = handle.read()
+        else:
+            raw_bytes = handle.read(MAX_TEXT_BYTES + 1)
 
     warnings: list[str] = []
     if b"\x00" in raw_bytes:
@@ -448,6 +487,14 @@ def _resolve_relative_module(
 def _node_sort_key(node: Node) -> tuple[int, str, str, str]:
     kind_order = 0 if node.kind == "file" else 1
     return (kind_order, node.path, node.kind, node.name)
+
+
+def _bound_import(alias: ast.alias) -> tuple[str, str]:
+    if alias.asname is not None:
+        return alias.asname, alias.name
+
+    top_level = alias.name.split(".")[0]
+    return top_level, top_level
 
 
 def _package_name_for_module(module_name: str | None, rel_path: str) -> str | None:
