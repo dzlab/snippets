@@ -1,0 +1,22 @@
+[
+  {
+    "query": "Where is PGN import parsed and handed to the worker?",
+    "gold_files": [
+      "packages/ui/src/pgn-import-client.ts",
+      "packages/ui/src/pgn-import-worker.ts"
+    ]
+  },
+  {
+    "query": "Where is the Dexie database schema for games imports profiles and tree edges?",
+    "gold_files": [
+      "packages/database/src/dexie-schema.ts"
+    ]
+  },
+  {
+    "query": "Where is the opening tree data indexed and rendered in the study workspace?",
+    "gold_files": [
+      "packages/database/src/tree-index.ts",
+      "packages/ui/src/OpeningTreePanel.tsx"
+    ]
+  }
+]

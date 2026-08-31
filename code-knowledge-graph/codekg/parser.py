@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
@@ -14,8 +15,12 @@ IGNORED_DIR_NAMES = {
     ".venv",
     "__pycache__",
     "build",
+    "coverage",
     "dist",
     "node_modules",
+    "out",
+    "target",
+    "test-results",
     "vendor",
     "venv",
 }
@@ -30,6 +35,7 @@ HIDDEN_DEPENDENCY_DIR_NAMES = {
     ".pytest_cache",
     ".ruff_cache",
     ".tox",
+    ".worktrees",
     ".yarn",
 }
 
@@ -53,6 +59,46 @@ class PythonFileInfo:
     tree: ast.AST
     module_scope: ScopeInfo
     symbol_scopes: dict[str, ScopeInfo]
+
+
+@dataclass
+class JavaScriptSymbol:
+    name: str
+    node_id: str
+    kind: str
+    start: int
+    end: int
+
+
+@dataclass
+class JavaScriptFileInfo:
+    rel_path: str
+    file_node_id: str
+    module_name: str
+    source: str
+    symbols: list[JavaScriptSymbol]
+    imported_symbols: dict[str, str] = field(default_factory=dict)
+
+
+JS_EXTENSIONS = {".js", ".jsx", ".ts", ".tsx"}
+JS_DECLARATION_RE = re.compile(
+    r"(?m)^\s*(?:(?:export)\s+)?(?:(?:default)\s+)?"
+    r"(?:(?:async)\s+)?(?P<kind>function|class)\s+(?P<name>[A-Za-z_$][\w$]*)"
+)
+JS_EXPORTED_VALUE_RE = re.compile(
+    r"(?m)^\s*export\s+(?:default\s+)?(?:const|let|var)\s+"
+    r"(?P<name>[A-Za-z_$][\w$]*)"
+)
+JS_IMPORT_RE = re.compile(
+    r"(?m)^\s*(?:import\s+(?P<clause>[^;\n]+?)\s+from\s+|"
+    r"export\s+(?:\{[^}]*\}|\*[^;\n]*)\s+from\s+)"
+    r"[\"'](?P<path>\.[^\"']*)[\"']"
+)
+JS_SIDE_EFFECT_IMPORT_RE = re.compile(r"(?m)^\s*import\s*[\"'](?P<path>\.[^\"']*)[\"']")
+JS_REQUIRE_RE = re.compile(r"(?:require|import)\s*\(\s*[\"'](?P<path>\.[^\"']*)[\"']\s*\)")
+JS_IDENTIFIER_CALL_RE = re.compile(r"\b(?P<name>[A-Za-z_$][\w$]*)\s*\(")
+# This intentionally handles only syntax whose target can be identified without
+# evaluating JavaScript or depending on a language parser.
 
 
 class SymbolCollector(ast.NodeVisitor):
@@ -291,8 +337,11 @@ def scan_repository(repo_root: str | Path) -> ParsedGraph:
     edge_keys: set[tuple[str, str, str]] = set()
     warnings: list[str] = []
     python_files: list[PythonFileInfo] = []
+    javascript_files: list[JavaScriptFileInfo] = []
     module_file_ids: dict[str, str] = {}
+    javascript_file_ids: dict[str, str] = {}
     symbol_ids: dict[str, str] = {}
+    javascript_symbol_ids: dict[tuple[str, str], str] = {}
 
     def record_walk_error(path: Path, exc: OSError) -> None:
         rel_path = path.relative_to(root).as_posix()
@@ -302,6 +351,7 @@ def scan_repository(repo_root: str | Path) -> ParsedGraph:
         rel_path = file_path.relative_to(root).as_posix()
 
         is_python = file_path.suffix == ".py"
+        is_javascript = file_path.suffix in JS_EXTENSIONS
 
         try:
             source_text, display_text, file_warnings = _read_text(
@@ -322,6 +372,20 @@ def scan_repository(repo_root: str | Path) -> ParsedGraph:
             text=display_text,
         )
 
+        if is_javascript:
+            module_name = _javascript_module_name_for_path(rel_path)
+            javascript_file_ids[module_name] = file_node_id
+            javascript_files.append(
+                JavaScriptFileInfo(
+                    rel_path=rel_path,
+                    file_node_id=file_node_id,
+                    module_name=module_name,
+                    source=source_text,
+                    symbols=_collect_javascript_symbols(
+                        rel_path, module_name, source_text, node_map, edge_keys
+                    ),
+                )
+            )
         if not is_python:
             continue
 
@@ -357,6 +421,18 @@ def scan_repository(repo_root: str | Path) -> ParsedGraph:
     for file_info in python_files:
         resolver = ReferenceResolver(file_info, module_file_ids, symbol_ids, edge_keys)
         resolver.visit(file_info.tree)
+
+    for file_info in javascript_files:
+        for symbol in file_info.symbols:
+            javascript_symbol_ids[(file_info.module_name, symbol.name)] = symbol.node_id
+
+    for file_info in javascript_files:
+        _resolve_javascript_references(
+            file_info,
+            javascript_file_ids,
+            javascript_symbol_ids,
+            edge_keys,
+        )
 
     nodes = sorted(node_map.values(), key=_node_sort_key)
     edges = [
@@ -454,6 +530,146 @@ def _module_name_for_path(rel_path: str) -> str | None:
         return ".".join(path.parts[:-1]) or None
     module_parts = list(path.with_suffix("").parts)
     return ".".join(module_parts) or None
+
+
+def _javascript_module_name_for_path(rel_path: str) -> str:
+    return ".".join(Path(rel_path).with_suffix("").parts)
+
+
+def _collect_javascript_symbols(
+    rel_path: str,
+    module_name: str,
+    source: str,
+    node_map: dict[str, Node],
+    edge_keys: set[tuple[str, str, str]],
+) -> list[JavaScriptSymbol]:
+    masked = _mask_javascript_non_code(source)
+    matches = list(JS_DECLARATION_RE.finditer(masked))
+    matches.extend(JS_EXPORTED_VALUE_RE.finditer(masked))
+    symbols: list[JavaScriptSymbol] = []
+    for match in sorted(matches, key=lambda item: item.start()):
+        name = match.group("name")
+        kind = match.groupdict().get("kind") or "variable"
+        qname = f"{module_name}.{name}"
+        node_id = f"symbol:{qname}"
+        if node_id in node_map:
+            continue
+        start = match.start()
+        end = _javascript_declaration_end(masked, match.end())
+        node_map[node_id] = Node(id=node_id, kind=kind, path=rel_path, name=qname)
+        edge_keys.add((f"file:{rel_path}", node_id, "contains"))
+        symbols.append(JavaScriptSymbol(name, node_id, kind, start, end))
+    return symbols
+
+
+def _resolve_javascript_references(
+    file_info: JavaScriptFileInfo,
+    file_ids: dict[str, str],
+    symbol_ids: dict[tuple[str, str], str],
+    edge_keys: set[tuple[str, str, str]],
+) -> None:
+    masked = _mask_javascript_non_code(file_info.source)
+    for import_match in JS_IMPORT_RE.finditer(file_info.source):
+        target = _resolve_javascript_import(file_info.rel_path, import_match.group("path"), file_ids)
+        if target is None:
+            continue
+        target_module, target_file_id = target
+        edge_keys.add((file_info.file_node_id, target_file_id, "imports"))
+        _bind_javascript_imports(file_info, import_match.group("clause") or "", target_module, symbol_ids)
+
+    for import_match in JS_SIDE_EFFECT_IMPORT_RE.finditer(file_info.source):
+        target = _resolve_javascript_import(file_info.rel_path, import_match.group("path"), file_ids)
+        if target is not None:
+            edge_keys.add((file_info.file_node_id, target[1], "imports"))
+
+    for require_match in JS_REQUIRE_RE.finditer(file_info.source):
+        target = _resolve_javascript_import(file_info.rel_path, require_match.group("path"), file_ids)
+        if target is not None:
+            edge_keys.add((file_info.file_node_id, target[1], "imports"))
+
+    for symbol in file_info.symbols:
+        body = masked[symbol.start : symbol.end]
+        for call in JS_IDENTIFIER_CALL_RE.finditer(body):
+            name = call.group("name")
+            if name in {"if", "for", "while", "switch", "catch", "function"}:
+                continue
+            target_id = file_info.imported_symbols.get(name)
+            if target_id is None:
+                target_id = next((item.node_id for item in file_info.symbols if item.name == name), None)
+            if target_id is not None and target_id != symbol.node_id:
+                edge_keys.add((symbol.node_id, target_id, "calls"))
+
+
+def _bind_javascript_imports(
+    file_info: JavaScriptFileInfo,
+    clause: str,
+    target_module: str,
+    symbol_ids: dict[tuple[str, str], str],
+) -> None:
+    clause = clause.strip()
+    if clause.startswith("{"):
+        for item in clause.strip("{}").split(","):
+            parts = item.strip().split()
+            if not parts:
+                continue
+            exported = parts[0]
+            local = parts[2] if len(parts) >= 3 and parts[1] == "as" else exported
+            target = symbol_ids.get((target_module, exported))
+            if target is not None:
+                file_info.imported_symbols[local] = target
+        return
+    default = clause.split(",", 1)[0].strip()
+    if default and re.fullmatch(r"[A-Za-z_$][\w$]*", default):
+        target = symbol_ids.get((target_module, default))
+        if target is not None:
+            file_info.imported_symbols[default] = target
+
+
+def _resolve_javascript_import(
+    rel_path: str,
+    import_path: str,
+    file_ids: dict[str, str],
+) -> tuple[str, str] | None:
+    base = (Path(rel_path).parent / import_path).as_posix()
+    extensionless_base = (
+        Path(base).with_suffix("").as_posix()
+        if Path(base).suffix in JS_EXTENSIONS
+        else base
+    )
+    candidates = [base, extensionless_base]
+    candidates.extend(
+        f"{extensionless_base}{extension}"
+        for extension in (".ts", ".tsx", ".js", ".jsx")
+    )
+    candidates.extend(
+        f"{extensionless_base}/index{extension}"
+        for extension in (".ts", ".tsx", ".js", ".jsx")
+    )
+    for candidate in candidates:
+        normalized = Path(candidate).as_posix()
+        module_name = _javascript_module_name_for_path(normalized)
+        if module_name in file_ids:
+            return module_name, file_ids[module_name]
+    return None
+
+
+def _mask_javascript_non_code(source: str) -> str:
+    return re.sub(r"(?s)(/\*.*?\*/|//[^\n]*|`(?:\\.|[^`])*`|'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\")", lambda match: re.sub(r"[^\n]", " ", match.group(0)), source)
+
+
+def _javascript_declaration_end(source: str, start: int) -> int:
+    brace = source.find("{", start)
+    if brace < 0:
+        return len(source)
+    depth = 0
+    for index in range(brace, len(source)):
+        if source[index] == "{":
+            depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return index + 1
+    return len(source)
 
 
 def _join_qname(base: str | None, name: str) -> str | None:

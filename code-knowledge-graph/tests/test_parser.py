@@ -101,6 +101,8 @@ class ScanRepositoryTest(unittest.TestCase):
             self._write(repo / "node_modules" / "skip.py", "def hidden():\n    return 0\n")
             self._write(repo / ".mypy_cache" / "skip.py", "def cached():\n    return 0\n")
             self._write(repo / "build" / "skip.py", "def built():\n    return 0\n")
+            self._write(repo / "target" / "skip.py", "def generated():\n    return 0\n")
+            self._write(repo / ".worktrees" / "skip.py", "def checkout():\n    return 0\n")
             self._write(repo / "bad.py", "def broken(:\n    pass\n")
 
             graph = scan_repository(repo)
@@ -111,6 +113,8 @@ class ScanRepositoryTest(unittest.TestCase):
             self.assertNotIn("node_modules/skip.py", file_paths)
             self.assertNotIn(".mypy_cache/skip.py", file_paths)
             self.assertNotIn("build/skip.py", file_paths)
+            self.assertNotIn("target/skip.py", file_paths)
+            self.assertNotIn(".worktrees/skip.py", file_paths)
             self.assertTrue(any("bad.py" in warning for warning in graph.warnings))
 
     def test_scan_repository_resolves_relative_imports(self):
@@ -164,6 +168,54 @@ class ScanRepositoryTest(unittest.TestCase):
                 ("symbol:consumer.use_helper", "symbol:pkg.util.helper", "calls"),
                 edge_keys,
             )
+
+    def test_scan_repository_extracts_javascript_structure_and_relative_imports(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            self._write(
+                repo / "src" / "main.ts",
+                (
+                    'import { helper } from "./lib";\n'
+                    'import { Widget } from "./widgets";\n\n'
+                    "export function run() {\n"
+                    "    helper();\n"
+                    "    Widget();\n"
+                    "    missing();\n"
+                    "}\n"
+                ),
+            )
+            self._write(
+                repo / "src" / "lib.ts",
+                "export function helper() { return 1; }\n",
+            )
+            self._write(
+                repo / "src" / "widgets" / "index.tsx",
+                "export class Widget {}\n",
+            )
+            self._write(repo / "node_modules" / "ignored.ts", "export function hidden() {}\n")
+
+            graph = scan_repository(repo)
+            node_ids = {node.id for node in graph.nodes}
+            edge_keys = {(edge.src, edge.dst, edge.kind) for edge in graph.edges}
+
+            self.assertIn("symbol:src.main.run", node_ids)
+            self.assertIn("symbol:src.lib.helper", node_ids)
+            self.assertIn("symbol:src.widgets.index.Widget", node_ids)
+            self.assertNotIn("symbol:node_modules.ignored.hidden", node_ids)
+            self.assertIn(("file:src/main.ts", "file:src/lib.ts", "imports"), edge_keys)
+            self.assertIn(
+                ("file:src/main.ts", "file:src/widgets/index.tsx", "imports"),
+                edge_keys,
+            )
+            self.assertIn(
+                ("symbol:src.main.run", "symbol:src.lib.helper", "calls"),
+                edge_keys,
+            )
+            self.assertIn(
+                ("symbol:src.main.run", "symbol:src.widgets.index.Widget", "calls"),
+                edge_keys,
+            )
+            self.assertFalse(any(edge.dst.endswith("missing") for edge in graph.edges))
 
     def test_scan_repository_keeps_arbitrary_readable_non_python_files(self):
         with tempfile.TemporaryDirectory() as tmpdir:

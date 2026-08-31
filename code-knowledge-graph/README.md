@@ -1,6 +1,6 @@
 # code-knowledge-graph
 
-`codekg` is a dependency-free Python 3.11+ CLI for indexing a Git checkout into a SQLite-backed code graph, retrieving likely files for a task, rendering a lightweight structure map, running offline recall experiments, and comparing LLM ranking with and without the structure map prompt.
+`codekg` is a dependency-free Python 3.11+ CLI for indexing a Git checkout into a SQLite-backed code graph, retrieving likely files for a task, rendering a lightweight structure map, running offline recall experiments, and comparing LLM ranking with and without the structure map prompt. Python files use AST extraction; TypeScript/JavaScript files use a conservative declaration, import, and call extractor.
 
 ## Zero-dependency setup
 
@@ -31,6 +31,8 @@ python3 -m codekg index /path/to/github-checkout \
 ```
 
 The output is JSON with graph counts and parser warnings. If the target directory is not a Git working tree, indexing still succeeds from the parser alone and the warning list includes a clear `git co-edit history unavailable` message. Paths are resolved from the repository path you pass to `index`, so the same command works for any local GitHub checkout.
+
+Common generated directories such as `node_modules`, `target`, `.worktrees`, `build`, `dist`, `coverage`, and `test-results` are skipped. This keeps an installed or built checkout from turning the graph into a dependency/cache inventory.
 
 The database is a normal SQLite file. Re-running `index` replaces the stored graph contents in that file.
 
@@ -77,6 +79,8 @@ Offline experiments and A/B runs both read a JSON array of tasks. Each task must
 
 `gold_files` must use repository-relative POSIX paths that match the indexed checkout. Absolute paths, `..` traversal, Windows drive prefixes, empty lists, and paths missing from the indexed graph are rejected with a CLI error before `experiment` or `ab` runs.
 
+The repository-specific task file used for the article is `examples/chess_studio_tasks.json`. It is separate from the generic example tasks so you can see how to author labels for a real checkout.
+
 ## Offline Experiment
 
 `experiment` runs lexical ranking and graph ranking for each task, then reports per-task and aggregate `recall_at_1`, `recall_at_3`, and `recall_at_5`. The recall cutoff is bounded by the number of indexed files so the metrics stay valid on very small repositories.
@@ -89,6 +93,22 @@ python3 -m codekg experiment \
 ```
 
 The output is plain JSON only. It does not invent labels, winners, or statistical claims.
+
+## Regenerate the article figures
+
+The article's three SVGs can be regenerated without a notebook, plotting package, or API call. First index a checkout and run an offline experiment, then provide the experiment JSON and a committed Django result JSON to the renderer:
+
+```bash
+python3 scripts/render_article_figures.py \
+  --db /tmp/chess-studio.sqlite3 \
+  --tasks examples/chess_studio_tasks.json \
+  --experiment /tmp/chess-studio-experiment.json \
+  --django /path/to/graphify_verification_results_django_cache.json \
+  --output-dir /path/to/blog/assets/2026/08 \
+  --query "PGN import worker"
+```
+
+The renderer writes a bounded file graph, a keyword-versus-PageRank ranking comparison, and a Django workflow chart. The Django input is intentionally kept separate from the chess-studio index.
 
 ## LLM A/B Run
 
