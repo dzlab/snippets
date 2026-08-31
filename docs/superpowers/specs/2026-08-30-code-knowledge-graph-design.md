@@ -11,7 +11,7 @@ The deliverable has two coordinated parts:
 1. `snippets/code-knowledge-graph/`: a runnable Python project with a CLI, SQLite persistence, Python source parsing, Git co-edit extraction, graph retrieval, Markdown structure-map generation, and optional OpenAI-compatible A/B localization.
 2. `dzlab.github.io/_posts/2026-08-30-building-code-knowledge-graphs.md`: a standalone Jekyll article explaining the problem, graph model, implementation, retrieval algorithm, experiment protocol, limitations, and reproducible commands. It links to the public companion repository rather than depending on private lesson paths.
 
-The canonical experiment is file localization, not autonomous editing. The optional API mode asks a model to rank candidate files for a task in two conditions: the task alone and the task plus the generated structure map. The project reports recall@k and any usage fields returned by the API. A no-API mode compares lexical ranking and graph-expanded ranking on the same task definitions.
+The canonical experiment is file localization, not autonomous editing. The concrete article walkthrough uses the local `chess-studio` GitHub checkout as its dataset rather than an invented toy graph. The optional API mode asks a model to rank candidate files for a task in two conditions: the task alone and the task plus the generated structure map. The project reports recall@k and any usage fields returned by the API. A no-API mode compares lexical ranking and graph-expanded ranking on the same task definitions.
 
 ## Recommended architecture
 
@@ -84,7 +84,7 @@ target Git checkout
                                                         treatment: task + map
 ```
 
-The article will show the toy graph first, then the real repository path, and finally the paired evaluation. It will explain that the graph is a navigation hint: it can surface dependencies and historically coupled files that do not share the task vocabulary, but it does not guarantee that an agent will choose or edit them.
+The article will start with the real `chess-studio` repository graph, then show the file-level projection, compare lexical and graph rankings, and finally explain the paired evaluation. It will explain that the graph is a navigation hint: it can surface dependencies and historically coupled files that do not share the task vocabulary, but it does not guarantee that an agent will choose or edit them.
 
 ## Testing and verification
 
@@ -106,12 +106,13 @@ Verification will run the full test suite, compile/import checks, an offline CLI
 The post will use the blog's existing front matter and organize the narrative as:
 
 1. Why flat text search misses code relationships.
-2. The graph model: files, symbols, imports, calls, containment, and co-edits.
-3. A portable SQLite implementation.
-4. Anchor retrieval plus PageRank.
+2. The graph model, grounded in a real `chess-studio` checkout.
+3. A portable SQLite implementation and repository-level visualization.
+4. Anchor retrieval plus a direct PageRank-versus-keyword comparison.
 5. Running the experiment on an arbitrary GitHub checkout.
 6. Optional OpenAI-compatible control/treatment trials.
-7. Interpreting results and avoiding overstated claims.
-8. Production extensions and conclusion.
+7. A separate Django coding-workflow case study, with explicit uncertainty.
+8. Interpreting results and avoiding overstated claims.
+9. Production extensions and conclusion.
 
 Code excerpts will be short and concept-focused; the companion project will contain the complete runnable implementation.

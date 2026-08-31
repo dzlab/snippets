@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a dependency-free Python companion that indexes arbitrary Python GitHub checkouts into SQLite, retrieves structurally related files, optionally asks an OpenAI-compatible API to rank files with and without graph context, and document the workflow in a self-contained Jekyll post.
+**Goal:** Build a dependency-free Python companion that indexes arbitrary Python GitHub checkouts into SQLite, retrieves structurally related files, optionally asks an OpenAI-compatible API to rank files with and without graph context, and document the workflow in a self-contained Jekyll post. Ground the article visualizations in a real `chess-studio` checkout and use the source-backed Django study as a separate coding-workflow case study.
 
 **Architecture:** The parser produces typed file/symbol nodes and import/call/containment edges; a Git-history reader adds weighted co-edit edges. A SQLite store persists the graph and retrieval projects it to files for deterministic lexical seeding and Personalized PageRank. A small HTTP client supplies optional control/treatment localization trials, while the core CLI and offline experiment remain network-free.
 
@@ -33,7 +33,14 @@ Companion project files:
 
 Blog files:
 
-- Create `dzlab.github.io/_posts/2026-08-30-building-code-knowledge-graphs.md`: source-backed standalone article linking to `https://github.com/dzlab/snippets/tree/master/code-knowledge-graph`.
+- Create `dzlab.github.io/_posts/2026-08-30-building-code-knowledge-graphs.md`: source-backed standalone article with checked-in SVG figures generated from the `chess-studio` graph and the Django benchmark data.
+- Create `dzlab.github.io/assets/2026/08/20260830-code-kg-file-graph.svg`: deterministic repository graph figure.
+- Create `dzlab.github.io/assets/2026/08/20260830-code-kg-retrieval.svg`: deterministic keyword-versus-PageRank comparison figure.
+- Create `dzlab.github.io/assets/2026/08/20260830-code-kg-django-workflow.svg`: deterministic Django workflow benchmark figure.
+
+Companion visualization support:
+
+- Create `code-knowledge-graph/scripts/render_article_figures.py`: dependency-free SVG renderer consuming a SQLite index, retrieval JSON, and Django benchmark JSON. It must not require the blog repository at runtime.
 - Modify `dzlab.github.io/README.md` only if the existing blog convention requires a post index entry; otherwise leave it untouched.
 
 ### Task 1: Scaffold the dependency-free project and data model
@@ -234,7 +241,36 @@ git diff --check
 
 Then run `index`, `retrieve`, `map`, and `experiment` against a temporary copy of an existing GitHub checkout under `/private/tmp`, not against the source repository itself. Preserve the output for article examples and inspect that the temporary DB is created outside the repository.
 
-### Task 6: Write, build, and verify the standalone blog post
+### Task 6: Generate source-backed article figures
+
+**Files:**
+- Create: `code-knowledge-graph/scripts/render_article_figures.py`
+- Create: `code-knowledge-graph/examples/chess_studio_tasks.json`
+- Create: `dzlab.github.io/assets/2026/08/20260830-code-kg-file-graph.svg`
+- Create: `dzlab.github.io/assets/2026/08/20260830-code-kg-retrieval.svg`
+- Create: `dzlab.github.io/assets/2026/08/20260830-code-kg-django-workflow.svg`
+
+- [ ] **Step 1: Define real chess-studio localization tasks**
+
+Create explicit, repository-relative gold labels for a small set of chess-studio queries. Keep these labels separate from the generic companion examples and record the indexed checkout revision in the figure metadata or article prose.
+
+- [ ] **Step 2: Render the chess-studio file graph**
+
+Index the local checkout with the companion CLI, select a bounded, query-relevant file neighborhood, and render nodes/edges with visible labels and a legend. Do not render a fabricated toy graph or claim that the figure represents the whole graph when it is a bounded view.
+
+- [ ] **Step 3: Render keyword versus PageRank**
+
+Use the same chess-studio task set and database to render side-by-side top-k rankings or recall curves for lexical search and personalized PageRank. Include a caption that the graph rank is seeded by lexical anchors and may lose on easy lexical queries.
+
+- [ ] **Step 4: Render the Django workflow case**
+
+Read the committed Django benchmark JSON and render the narrowly supported five-run hero-task result, with the neutral/negative suite context in the article prose. Do not label Django measurements as chess-studio results.
+
+- [ ] **Step 5: Verify generated SVG structure**
+
+Check that all SVGs have valid `viewBox`, visible labels, non-empty content, and no external resource dependencies. Re-run the renderer from a fresh temporary chess-studio index before finalizing.
+
+### Task 7: Write, build, and verify the standalone blog post
 
 **Files:**
 - Create: `/Users/bachir/co/github/dzlab/dzlab.github.io/_posts/2026-08-30-building-code-knowledge-graphs.md`
@@ -261,7 +297,7 @@ Explain why path/keyword search is a useful baseline but misses multi-hop depend
 
 - [ ] **Step 2: Explain the graph model and workflow**
 
-Include a Mermaid diagram showing checkout → AST/Git extraction → SQLite → lexical anchors → PageRank → structure map → optional API A/B. Use a table for node and edge types. Do not mention private notebooks or local lesson paths.
+Include a Mermaid diagram showing checkout → AST/Git extraction → SQLite → lexical anchors → PageRank → structure map → optional API A/B. Use a table for node and edge types. Ground the repository examples in chess-studio and do not mention private notebooks or local lesson paths.
 
 - [ ] **Step 3: Show focused implementation excerpts**
 
@@ -275,7 +311,11 @@ Show the arbitrary-checkout `index`, `retrieve`, `map`, `experiment`, and option
 
 Use only numbers reproduced from the verified local companion run or clearly label course-study numbers as prior benchmark evidence. State that graph hints are not guaranteed improvements, that lexical anchoring can dominate, and that co-edit edges reflect historical coupling rather than semantic correctness. Cover incremental updates, language support, graph freshness, privacy, prompt size, and API cost.
 
-- [ ] **Step 6: Build and inspect the blog**
+- [ ] **Step 6: Add and inspect the three SVG figures**
+
+Place the repository graph after the graph model, the retrieval comparison in its dedicated PageRank section, and the Django workflow figure in the benchmark section. Use descriptive alt text, normal Markdown captions, and the blog's date-based `assets/2026/08/` convention.
+
+- [ ] **Step 7: Build and inspect the blog**
 
 From the blog root, run:
 
@@ -286,7 +326,7 @@ make build
 
 Inspect the generated post for front matter, headings, table rendering, Mermaid syntax, code fences, and the companion link. Leave unrelated blog changes untouched.
 
-- [ ] **Step 7: Final requirement audit**
+- [ ] **Step 8: Final requirement audit**
 
 Confirm all requirements against the files and commands:
 
@@ -296,4 +336,6 @@ Confirm all requirements against the files and commands:
 - OpenAI-compatible API configuration is documented and tested offline with a fake server;
 - arbitrary GitHub checkout indexing works in a temporary verification run;
 - offline retrieval and evaluation work with no API key;
+- article figures use real chess-studio data and are reproducibly rendered;
+- Django benchmark claims remain separate from chess-studio graph results;
 - full tests, compile checks, `git diff --check`, and `make build` have fresh passing output.
