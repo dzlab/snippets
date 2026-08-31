@@ -9,7 +9,7 @@ Create a self-contained technical article and companion project that shows how t
 The deliverable has two coordinated parts:
 
 1. `snippets/code-knowledge-graph/`: a runnable Python project with a CLI, SQLite persistence, Python source parsing, Git co-edit extraction, graph retrieval, Markdown structure-map generation, and optional OpenAI-compatible A/B localization.
-2. `dzlab.github.io/_posts/2026-08-30-building-code-knowledge-graphs.md`: a standalone Jekyll article explaining the problem, graph model, implementation, retrieval algorithm, experiment protocol, limitations, and reproducible commands. It links to the public companion repository rather than depending on private lesson paths.
+2. `dzlab.github.io/_posts/2026-08-30-building-code-knowledge-graphs.md`: a standalone Jekyll article explaining the problem, graph model, implementation, retrieval algorithm, experiment protocol, limitations, and reproducible commands. It references the companion project without depending on private lesson paths.
 
 The canonical experiment is file localization, not autonomous editing. The concrete article walkthrough uses the local `chess-studio` GitHub checkout as its dataset rather than an invented toy graph. The optional API mode asks a model to rank candidate files for a task in two conditions: the task alone and the task plus the generated structure map. The project reports recall@k and any usage fields returned by the API. A no-API mode compares lexical ranking and graph-expanded ranking on the same task definitions.
 
