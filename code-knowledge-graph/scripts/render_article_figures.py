@@ -2,8 +2,8 @@
 
 The core ``codekg`` CLI remains dependency-free. Install the optional figure
 dependencies first, for example ``uv run --with matplotlib --with networkx``.
-The renderer consumes the portable SQLite index, an explicit task file, and a
-committed Django benchmark JSON; it never calls an API or embeds external data.
+The renderer consumes the portable SQLite index and an explicit task file; it
+never calls an API or embeds external data.
 """
 
 from __future__ import annotations
@@ -33,8 +33,6 @@ def main() -> int:
     parser.add_argument("--db", type=Path, required=True)
     parser.add_argument("--tasks", type=Path, required=True)
     parser.add_argument("--experiment", type=Path, required=True)
-    parser.add_argument("--django", type=Path, required=True)
-    parser.add_argument("--django-suite", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--query", default="PGN import worker")
     args = parser.parse_args()
@@ -51,21 +49,19 @@ def main() -> int:
 
     tasks = json.loads(args.tasks.read_text(encoding="utf-8"))
     experiment = json.loads(args.experiment.read_text(encoding="utf-8"))
-    django = json.loads(args.django.read_text(encoding="utf-8"))
-    django_suite = json.loads(args.django_suite.read_text(encoding="utf-8"))
     if len(tasks) != len(experiment.get("tasks", [])):
         raise ValueError("task file and experiment result contain different task counts")
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    save_figure(render_repository_graph(nodes, edges), args.output_dir / "20260830-code-kg-file-graph.png")
-    save_figure(
-        render_retrieval_comparison(nodes, edges, experiment, args.query),
-        args.output_dir / "20260830-code-kg-retrieval.png",
-    )
-    save_figure(
-        render_django_benchmark(django, django_suite),
-        args.output_dir / "20260830-code-kg-django-workflow.png",
-    )
+    figures = {
+        "20260830-code-kg-full-graph.png": render_repository_graph(nodes, edges),
+        "20260830-code-kg-file-layer.png": render_file_layer_graph(nodes, edges),
+        "20260830-code-kg-anchor-walk.png": render_anchor_walk(nodes, edges, args.query),
+        "20260830-code-kg-retrieval-comparison.png": render_retrieval_comparison(experiment),
+        "20260830-code-kg-chess-studio-benchmark.png": render_chess_studio_benchmark(experiment),
+    }
+    for filename, figure in figures.items():
+        save_figure(figure, args.output_dir / filename)
     return 0
 
 
@@ -80,7 +76,7 @@ def load_graph(connection: sqlite3.Connection) -> tuple[list[dict], list[tuple[s
 
 
 def render_repository_graph(nodes: list[dict], edges: list[tuple[str, str, str]]):
-    """Render the notebook's whole-graph plus readable file-layer zoom."""
+    """Render the notebook's whole repository graph as one chart."""
     import matplotlib.pyplot as plt
     import networkx as nx
     from matplotlib.lines import Line2D
@@ -97,8 +93,7 @@ def render_repository_graph(nodes: list[dict], edges: list[tuple[str, str, str]]
         for node in graph
     }
 
-    fig, axes = plt.subplots(1, 2, figsize=(24, 13), gridspec_kw={"width_ratios": (1.05, 1)})
-    ax = axes[0]
+    fig, ax = plt.subplots(figsize=(18, 13))
     nx.draw_networkx_edges(graph, layout, edge_color="#aab0b8", width=0.35, alpha=0.55, ax=ax)
     for shape in ("^", "s"):
         group = [node for node in graph if node_shape[node] == shape]
@@ -122,121 +117,151 @@ def render_repository_graph(nodes: list[dict], edges: list[tuple[str, str, str]]
     )
     ax.axis("off")
 
-    _render_file_zoom(axes[1], graph)
-    fig.suptitle("Repository graph views rendered with the L4 NetworkX/Matplotlib style", fontsize=15, y=0.98)
+    fig.suptitle("Chess Studio repository graph rendered with the L4 NetworkX/Matplotlib style", fontsize=15, y=0.98)
     fig.tight_layout()
     return fig
 
 
-def render_retrieval_comparison(
-    nodes: list[dict], edges: list[tuple[str, str, str]], experiment: dict, query: str
+def render_file_layer_graph(nodes: list[dict], edges: list[tuple[str, str, str]]):
+    """Render the notebook-style readable file-layer hub view as one chart."""
+    import matplotlib.pyplot as plt
+
+    graph, _ = _file_graph(nodes, edges)
+    fig, ax = plt.subplots(figsize=(13, 11))
+    _render_file_zoom(ax, graph)
+    ax.set_title(
+        "Chess Studio file-layer hub neighborhood\n"
+        "core files are colored by dominant relationship; ghost files show the surrounding context",
+        fontsize=12,
+    )
+    fig.tight_layout()
+    return fig
+
+
+def render_anchor_walk(
+    nodes: list[dict], edges: list[tuple[str, str, str]], query: str
 ):
-    """Render an L4-style anchor walk beside a keyword/PageRank scorecard."""
+    """Render an L4-style anchor walk for a real chess-studio query."""
     import matplotlib.pyplot as plt
     import networkx as nx
     from matplotlib.lines import Line2D
 
-    graph, file_metadata = _file_graph(nodes, edges)
-    file_nodes = list(graph)
-    query_tokens = _tokens(query)
-    lexical_scores = {
-        node: _file_lexical_score(query_tokens, file_metadata[node])
-        for node in file_nodes
-    }
-    anchors = [node for node, _ in sorted(lexical_scores.items(), key=lambda item: (-item[1], item[0]))[:3]]
-    anchor = anchors[0]
-    ppr = nx.pagerank(graph, alpha=0.85, personalization={anchor: 1.0}, max_iter=100)
-    ranked = [node for node, _ in sorted(ppr.items(), key=lambda item: (-item[1], item[0]))]
-    shown = set(ranked[:18]) | {anchor}
-    walk_graph = graph.subgraph(shown).copy()
-    reached = [node for node in ranked if node != anchor][:5]
+    walk_graph, anchor, reached = _anchor_walk_context(nodes, edges, query)
     layout = nx.spring_layout(walk_graph, seed=23, k=2.0)
 
-    fig, (ax_left, ax_right) = plt.subplots(1, 2, figsize=(19, 9), gridspec_kw={"width_ratios": (1.15, 1)})
+    fig, ax = plt.subplots(figsize=(13, 9))
     for source, target, data in walk_graph.edges(data=True):
         kinds = data.get("kinds", {"co_edit"})
         kind = next((candidate for candidate in ("contains", "import", "call", "co_edit") if candidate in kinds), "co_edit")
         style = EDGE_STYLE[kind]
         nx.draw_networkx_edges(
-            walk_graph, layout, edgelist=[(source, target)], ax=ax_left,
+            walk_graph, layout, edgelist=[(source, target)], ax=ax,
             arrows=False, width=style["lw"],
             style=style["ls"], edge_color=style["color"], alpha=0.35,
         )
     nx.draw_networkx_nodes(
         walk_graph, layout, nodelist=list(walk_graph), node_shape="s", node_size=620,
-        node_color=NODE_FILL, edgecolors="white", ax=ax_left,
+        node_color=NODE_FILL, edgecolors="white", ax=ax,
     )
-    nx.draw_networkx_nodes(walk_graph, layout, nodelist=[anchor], node_shape="s", node_size=950, node_color=NODE_FILL, edgecolors="#D55E00", linewidths=3, ax=ax_left)
+    nx.draw_networkx_nodes(walk_graph, layout, nodelist=[anchor], node_shape="s", node_size=950, node_color=NODE_FILL, edgecolors="#D55E00", linewidths=3, ax=ax)
     reached_nodes = [node for node in reached if node in walk_graph]
     nx.draw_networkx_nodes(
         walk_graph, layout, nodelist=reached_nodes, node_shape="s", node_size=700,
-        node_color=NODE_FILL, edgecolors="#0072B2", linewidths=2.5, ax=ax_left,
+        node_color=NODE_FILL, edgecolors="#0072B2", linewidths=2.5, ax=ax,
     )
     labels = {node: _display_label(node) for node in walk_graph}
-    nx.draw_networkx_labels(walk_graph, layout, labels, font_size=7, ax=ax_left)
-    ax_left.legend(
+    nx.draw_networkx_labels(walk_graph, layout, labels, font_size=8, ax=ax)
+    ax.legend(
         handles=[
             Line2D([0], [0], marker="s", color="none", markerfacecolor="none", markeredgecolor="#D55E00", markeredgewidth=2.5, markersize=11, label="anchor — keyword match"),
             Line2D([0], [0], marker="s", color="none", markerfacecolor="none", markeredgecolor="#0072B2", markeredgewidth=2.5, markersize=10, label="reached by PageRank walk"),
             Line2D([0], [0], color=EDGE_STYLE["import"]["color"], lw=2, label="import"),
             Line2D([0], [0], color=EDGE_STYLE["co_edit"]["color"], lw=2, ls="--", label="co_edit"),
-        ], loc="upper left", fontsize=8, framealpha=0.9,
+        ], loc="upper left", fontsize=9, framealpha=0.9,
     )
-    ax_left.set_title(f'Anchor walk for "{query}"\n{len(walk_graph)} files in the top PageRank neighborhood', fontsize=11)
-    ax_left.axis("off")
-
-    _render_recall_scorecard(ax_right, experiment)
-    fig.suptitle("Retrieval: keyword anchors first, then graph propagation", fontsize=14, y=0.98)
+    ax.set_title(
+        f'Anchor walk for "{query}"\n'
+        f"{len(walk_graph)} files in the top PageRank neighborhood",
+        fontsize=12,
+    )
+    ax.axis("off")
     fig.tight_layout()
     return fig
 
 
-def render_django_benchmark(result: dict, suite: dict):
-    """Render the notebook's signed hero bars beside its suite spread."""
+def render_retrieval_comparison(experiment: dict):
+    """Render one aggregate keyword-versus-PageRank recall chart."""
     import matplotlib.pyplot as plt
 
-    fig, (ax_left, ax_right) = plt.subplots(1, 2, figsize=(17, 6.5), gridspec_kw={"width_ratios": (1.15, 1)})
-    aggregate = result["aggregate"]
-    control, treatment = aggregate["control"], aggregate["treatment"]
-    rows = [
-        ("Gold recall", "mean_recall", False),
-        ("Fewer tokens", "mean_total_tokens", True),
-        ("Fewer tool calls", "mean_tool_calls", True),
-        ("Faster to first correct edit", "mean_tool_calls_to_first_correct_edit", True),
-        ("Less total time", "mean_duration_ms", True),
-        ("Lower cost", "mean_cost_usd", True),
-    ]
-    labels, values = [], []
-    for label, key, lower_better in rows:
-        change = (treatment[key] - control[key]) / control[key] * 100
-        labels.append(label)
-        values.append(-change if lower_better else change)
-    colors = ["#2e9e5b" if value >= 0 else "#c0392b" for value in values]
-    ax_left.bar(range(len(labels)), values, color=colors)
-    ax_left.axhline(0, color="#333", lw=0.9)
-    ax_left.set_xticks(range(len(labels)))
-    ax_left.set_xticklabels(labels, rotation=28, ha="right", fontsize=8)
-    ax_left.set_ylabel("improvement % (positive = structure map better)")
-    ax_left.set_title("Django cache-control hero task (n=5/arm)", fontsize=11)
-    ax_left.grid(axis="y", alpha=0.25)
-    for index, value in enumerate(values):
-        ax_left.text(index, value + (1.5 if value >= 0 else -3), f"{value:+.0f}%", ha="center", fontsize=8, fontweight="bold")
+    aggregate = experiment.get("aggregate", {})
+    ks = [1, 3, 5]
+    keyword = [aggregate.get("lexical", {}).get(f"recall_at_{k}", 0.0) for k in ks]
+    pagerank = [aggregate.get("graph", {}).get(f"recall_at_{k}", 0.0) for k in ks]
+    fig, ax = plt.subplots(figsize=(11, 7))
+    import numpy as np
 
-    suite_rows = sorted(suite.get("per_task", []), key=lambda row: row.get("metrics", {}).get("mean_duration_ms", {}).get("pct_improvement", 0))
-    suite_labels = [row["task"].replace("django_", "") for row in suite_rows]
-    suite_values = [row["metrics"]["mean_duration_ms"]["pct_improvement"] for row in suite_rows]
-    suite_colors = ["#c0392b" if value < 0 else "#d9a441" if value < 4 else "#2e9e5b" for value in suite_values]
-    ax_right.barh(range(len(suite_labels)), suite_values, color=suite_colors)
-    ax_right.axvline(0, color="#333", lw=0.9)
-    ax_right.set_yticks(range(len(suite_labels)))
-    ax_right.set_yticklabels(suite_labels, fontsize=8)
-    ax_right.set_xlabel("total-time improvement % (positive = graph faster)")
-    pooled = suite.get("pooled", {})
-    median = pooled.get("mean_duration_ms", {}).get("pooled_median_pct", 0) if isinstance(pooled, dict) else 0
-    ax_right.axvline(median, color="#2e9e5b", lw=1.4, ls="--")
-    ax_right.set_title(f"Django suite spread (median {median:+.1f}%)", fontsize=11)
-    ax_right.grid(axis="x", alpha=0.25)
-    fig.suptitle("Coding-workflow benchmark: signed improvements, same style as L4", fontsize=14, y=0.99)
+    x = np.arange(len(ks))
+    width = 0.34
+    bars_keyword = ax.bar(x - width / 2, keyword, width, color="#0072B2", label="keyword")
+    bars_pagerank = ax.bar(x + width / 2, pagerank, width, color="#D55E00", label="PageRank")
+    for bars in (bars_keyword, bars_pagerank):
+        for bar in bars:
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.025,
+                f"{bar.get_height():.2f}",
+                ha="center",
+                fontsize=9,
+            )
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"recall@{k}" for k in ks])
+    ax.set_ylim(0, 1.15)
+    ax.set_ylabel("mean recall across three chess-studio tasks")
+    ax.set_title(
+        "Chess Studio retrieval: keyword search versus PageRank\n"
+        "PageRank is seeded by lexical anchors; this is an offline three-task sample",
+        fontsize=12,
+    )
+    ax.legend(framealpha=0.9)
+    ax.grid(axis="y", alpha=0.25)
+    fig.tight_layout()
+    return fig
+
+
+def render_chess_studio_benchmark(experiment: dict):
+    """Render one task-level recall chart from the real repository experiment."""
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    tasks = experiment.get("tasks", [])
+    labels = [f"task {index + 1}" for index in range(len(tasks))]
+    keyword = [task.get("lexical", {}).get("recall_at_5", 0.0) for task in tasks]
+    pagerank = [task.get("graph", {}).get("recall_at_5", 0.0) for task in tasks]
+    x = np.arange(len(labels))
+    width = 0.34
+    fig, ax = plt.subplots(figsize=(11, 7))
+    bars_keyword = ax.bar(x - width / 2, keyword, width, color="#0072B2", label="keyword")
+    bars_pagerank = ax.bar(x + width / 2, pagerank, width, color="#D55E00", label="PageRank")
+    for bars in (bars_keyword, bars_pagerank):
+        for bar in bars:
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.025,
+                f"{bar.get_height():.2f}",
+                ha="center",
+                fontsize=9,
+            )
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.set_ylim(0, 1.15)
+    ax.set_ylabel("recall@5")
+    ax.set_title(
+        "Chess Studio task-level retrieval at recall@5\n"
+        "three explicit queries with repository-relative gold files",
+        fontsize=12,
+    )
+    ax.legend(framealpha=0.9)
+    ax.grid(axis="y", alpha=0.25)
     fig.tight_layout()
     return fig
 
@@ -293,6 +318,25 @@ def _file_lexical_score(query_tokens, node):
         len(query_tokens & _tokens(value or ""))
         for value in (node.get("path"), node.get("name"), node.get("text"))
     )
+
+
+def _anchor_walk_context(nodes, edges, query):
+    import networkx as nx
+
+    graph, file_metadata = _file_graph(nodes, edges)
+    query_tokens = _tokens(query)
+    lexical_scores = {
+        node: _file_lexical_score(query_tokens, file_metadata[node])
+        for node in graph
+    }
+    anchors = sorted(lexical_scores, key=lambda node: (-lexical_scores[node], node))[:3]
+    anchor = anchors[0]
+    ppr = nx.pagerank(graph, alpha=0.85, personalization={anchor: 1.0}, max_iter=100)
+    ranked = [node for node, _ in sorted(ppr.items(), key=lambda item: (-item[1], item[0]))]
+    shown = set(ranked[:18]) | {anchor}
+    walk_graph = graph.subgraph(shown).copy()
+    reached = [node for node in ranked if node != anchor][:5]
+    return walk_graph, anchor, reached
 
 
 def _dominant_color(graph, node):

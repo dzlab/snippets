@@ -96,7 +96,7 @@ The output is plain JSON only. It does not invent labels, winners, or statistica
 
 ## Regenerate the article figures
 
-The article's three PNGs can be regenerated from real checkout data without an API call. The renderer follows the notebook's Matplotlib/NetworkX visual language and is kept optional so the core CLI remains dependency-free. First index a checkout and run an offline experiment, then provide the experiment JSON and the two committed Django result JSON files to the renderer:
+The article's five PNGs can be regenerated from real checkout data without an API call. Each PNG contains one chart. The renderer follows the notebook's Matplotlib/NetworkX visual language and is kept optional so the core CLI remains dependency-free. First index a checkout and run an offline experiment, then provide the experiment JSON to the renderer:
 
 ```bash
 uv sync --extra viz
@@ -104,13 +104,11 @@ uv run --extra viz python3 scripts/render_article_figures.py \
   --db /tmp/chess-studio.sqlite3 \
   --tasks examples/chess_studio_tasks.json \
   --experiment /tmp/chess-studio-experiment.json \
-  --django /path/to/graphify_verification_results_django_cache.json \
-  --django-suite /path/to/graphify_verification_suite_summary.json \
   --output-dir /path/to/blog/assets/2026/08 \
   --query "PGN import worker"
 ```
 
-The renderer writes three PNGs: a whole-graph plus file-layer zoom, an anchor-walk plus keyword/PageRank scorecard, and signed Django hero/suite benchmark bars. The Django hero input and suite-summary input are intentionally kept separate from the chess-studio index.
+The renderer writes five PNGs: the full graph, file-layer hub neighborhood, anchor walk, aggregate keyword/PageRank comparison, and chess-studio task-level recall benchmark. The output directory is expected to be the blog's `assets/2026/08` directory when regenerating the published figures.
 
 ## LLM A/B Run
 
