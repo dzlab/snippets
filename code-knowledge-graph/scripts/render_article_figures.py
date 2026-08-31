@@ -1,4 +1,4 @@
-"""Render article figures with the same Matplotlib/NetworkX style as L4.
+"""Render the article's Matplotlib/NetworkX figures.
 
 The core ``codekg`` CLI remains dependency-free. Install the optional figure
 dependencies first, for example ``uv run --with matplotlib --with networkx``.
@@ -35,8 +35,8 @@ def main() -> int:
     parser.add_argument("--graph-json", type=Path, help="exported code graph JSON for repository and anchor charts")
     parser.add_argument("--tasks", type=Path, help="Task JSON paired with --experiment")
     parser.add_argument("--experiment", type=Path, help="Offline retrieval experiment JSON")
-    parser.add_argument("--benchmark", type=Path, help="hero-task benchmark JSON using the L4-compatible schema")
-    parser.add_argument("--suite", type=Path, help="per-task suite-summary JSON using the L4-compatible schema")
+    parser.add_argument("--benchmark", type=Path, help="hero-task benchmark JSON using the workflow benchmark schema")
+    parser.add_argument("--suite", type=Path, help="per-task suite-summary JSON using the workflow benchmark schema")
     parser.add_argument("--label", default="Coding-workflow benchmark", help="label used in benchmark chart titles")
     parser.add_argument("--task-prefix", default="", help="optional prefix to remove from suite task labels")
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -103,7 +103,7 @@ def load_graph(connection: sqlite3.Connection) -> tuple[list[dict], list[tuple[s
 
 
 def load_graph_json(path: Path) -> tuple[list[dict], list[tuple[str, str, str]]]:
-    """Load the portable graph export used by the L4 notebook and codekg."""
+    """Load a portable graph export."""
     payload = json.loads(path.read_text(encoding="utf-8"))
     nodes = []
     for raw_node in payload["nodes"]:
@@ -122,7 +122,7 @@ def load_graph_json(path: Path) -> tuple[list[dict], list[tuple[str, str, str]]]
 
 
 def render_repository_graph(nodes: list[dict], edges: list[tuple[str, str, str]]):
-    """Render the notebook's whole repository graph as one chart."""
+    """Render the whole repository graph as one chart."""
     import matplotlib.pyplot as plt
     import networkx as nx
     from matplotlib.lines import Line2D
@@ -168,7 +168,7 @@ def render_repository_graph(nodes: list[dict], edges: list[tuple[str, str, str]]
 
 
 def render_file_layer_graph(nodes: list[dict], edges: list[tuple[str, str, str]]):
-    """Render the notebook-style readable file-layer hub view as one chart."""
+    """Render the readable file-layer hub view as one chart."""
     import matplotlib.pyplot as plt
 
     graph, _ = _file_graph(nodes, edges)
@@ -186,7 +186,7 @@ def render_file_layer_graph(nodes: list[dict], edges: list[tuple[str, str, str]]
 def render_anchor_walk(
     nodes: list[dict], edges: list[tuple[str, str, str]], query: str
 ):
-    """Render an L4-style anchor walk for a real repository query."""
+    """Render a hybrid anchor walk for a real repository query."""
     import matplotlib.pyplot as plt
     import networkx as nx
     from matplotlib.lines import Line2D
@@ -274,7 +274,7 @@ def render_retrieval_comparison(experiment: dict):
 
 
 def render_benchmark_hero(result: dict, label: str):
-    """Render an L4-compatible hero-task improvement chart."""
+    """Render a workflow benchmark hero-task improvement chart."""
     import matplotlib.pyplot as plt
 
     aggregate = result["aggregate"]
@@ -320,7 +320,7 @@ def render_benchmark_hero(result: dict, label: str):
 
 
 def render_benchmark_suite(suite: dict, label: str, task_prefix: str = ""):
-    """Render an L4-compatible per-task time-improvement chart."""
+    """Render a workflow benchmark per-task time-improvement chart."""
     import matplotlib.pyplot as plt
 
     rows = sorted(
