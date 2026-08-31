@@ -37,7 +37,7 @@ def main() -> int:
     parser.add_argument("--django", type=Path, required=True)
     parser.add_argument("--django-suite", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--query", default="PGN import worker")
+    parser.add_argument("--query", default="cache control middleware")
     args = parser.parse_args()
 
     import matplotlib
@@ -117,13 +117,13 @@ def render_repository_graph(nodes: list[dict], edges: list[tuple[str, str, str]]
     ]
     ax.legend(handles=legend, loc="upper left", fontsize=9, framealpha=0.9)
     ax.set_title(
-        f"Chess Studio code graph ({graph.number_of_nodes()} nodes, {graph.number_of_edges()} collapsed visual edges)\n"
+        f"Repository code graph ({graph.number_of_nodes()} nodes, {graph.number_of_edges()} collapsed visual edges)\n"
         "shape = node type   |   colour = dominant relationship   |   bigger = hub",
         fontsize=12,
     )
     ax.axis("off")
 
-    fig.suptitle("Chess Studio repository graph rendered with the L4 NetworkX/Matplotlib style", fontsize=15, y=0.98)
+    fig.suptitle("Repository graph rendered with the L4 NetworkX/Matplotlib style", fontsize=15, y=0.98)
     fig.tight_layout()
     return fig
 
@@ -136,7 +136,7 @@ def render_file_layer_graph(nodes: list[dict], edges: list[tuple[str, str, str]]
     fig, ax = plt.subplots(figsize=(13, 11))
     _render_file_zoom(ax, graph)
     ax.set_title(
-        "Chess Studio file-layer hub neighborhood\n"
+        "Repository file-layer hub neighborhood\n"
         "core files are colored by dominant relationship; ghost files show the surrounding context",
         fontsize=12,
     )
@@ -222,10 +222,10 @@ def render_retrieval_comparison(experiment: dict):
     ax.set_xticks(x)
     ax.set_xticklabels([f"recall@{k}" for k in ks])
     ax.set_ylim(0, 1.15)
-    ax.set_ylabel("mean recall across three chess-studio tasks")
+    ax.set_ylabel("mean recall across the evaluated tasks")
     ax.set_title(
-        "Chess Studio retrieval: keyword search versus PageRank\n"
-        "PageRank is seeded by lexical anchors; this is an offline three-task sample",
+        "Repository retrieval: keyword search versus PageRank\n"
+        "PageRank is seeded by lexical anchors; this is an offline task sample",
         fontsize=12,
     )
     ax.legend(framealpha=0.9)
