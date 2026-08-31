@@ -31,41 +31,54 @@ EDGE_KIND_MAP = {"imports": "import", "calls": "call"}
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--db", type=Path, required=True)
-    parser.add_argument("--tasks", type=Path, required=True)
-    parser.add_argument("--experiment", type=Path, required=True)
-    parser.add_argument("--django", type=Path, required=True)
-    parser.add_argument("--django-suite", type=Path, required=True)
+    parser.add_argument("--db", type=Path, help="SQLite graph for repository and anchor charts")
+    parser.add_argument("--tasks", type=Path, help="Task JSON paired with --experiment")
+    parser.add_argument("--experiment", type=Path, help="Offline retrieval experiment JSON")
+    parser.add_argument("--django", type=Path, help="L4 Django hero-task benchmark JSON")
+    parser.add_argument("--django-suite", type=Path, help="L4 Django suite-summary JSON")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--query", default="cache control middleware")
     args = parser.parse_args()
 
+    if args.tasks and not args.experiment:
+        parser.error("--tasks requires --experiment")
+    if args.experiment and not args.tasks:
+        parser.error("--experiment requires --tasks")
+    if bool(args.django) != bool(args.django_suite):
+        parser.error("--django and --django-suite must be provided together")
+    if not any((args.db, args.experiment, args.django)):
+        parser.error("provide a graph, experiment, or Django benchmark input")
+
     import matplotlib
 
     matplotlib.use("Agg")
-    connection = sqlite3.connect(args.db)
-    connection.row_factory = sqlite3.Row
-    try:
-        nodes, edges = load_graph(connection)
-    finally:
-        connection.close()
-
-    tasks = json.loads(args.tasks.read_text(encoding="utf-8"))
-    experiment = json.loads(args.experiment.read_text(encoding="utf-8"))
-    django = json.loads(args.django.read_text(encoding="utf-8"))
-    django_suite = json.loads(args.django_suite.read_text(encoding="utf-8"))
-    if len(tasks) != len(experiment.get("tasks", [])):
-        raise ValueError("task file and experiment result contain different task counts")
-
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    figures = {
-        "20260830-code-kg-full-graph.png": render_repository_graph(nodes, edges),
-        "20260830-code-kg-file-layer.png": render_file_layer_graph(nodes, edges),
-        "20260830-code-kg-anchor-walk.png": render_anchor_walk(nodes, edges, args.query),
-        "20260830-code-kg-retrieval-comparison.png": render_retrieval_comparison(experiment),
-        "20260830-code-kg-django-hero.png": render_django_hero(django),
-        "20260830-code-kg-django-suite.png": render_django_suite(django_suite),
-    }
+    figures = {}
+    if args.db:
+        connection = sqlite3.connect(args.db)
+        connection.row_factory = sqlite3.Row
+        try:
+            nodes, edges = load_graph(connection)
+        finally:
+            connection.close()
+        figures.update({
+            "20260830-code-kg-full-graph.png": render_repository_graph(nodes, edges),
+            "20260830-code-kg-file-layer.png": render_file_layer_graph(nodes, edges),
+            "20260830-code-kg-anchor-walk.png": render_anchor_walk(nodes, edges, args.query),
+        })
+    if args.experiment:
+        tasks = json.loads(args.tasks.read_text(encoding="utf-8"))
+        experiment = json.loads(args.experiment.read_text(encoding="utf-8"))
+        if len(tasks) != len(experiment.get("tasks", [])):
+            raise ValueError("task file and experiment result contain different task counts")
+        figures["20260830-code-kg-retrieval-comparison.png"] = render_retrieval_comparison(experiment)
+    if args.django:
+        django = json.loads(args.django.read_text(encoding="utf-8"))
+        django_suite = json.loads(args.django_suite.read_text(encoding="utf-8"))
+        figures.update({
+            "20260830-code-kg-django-hero.png": render_django_hero(django),
+            "20260830-code-kg-django-suite.png": render_django_suite(django_suite),
+        })
     for filename, figure in figures.items():
         save_figure(figure, args.output_dir / filename)
     return 0
@@ -147,7 +160,7 @@ def render_file_layer_graph(nodes: list[dict], edges: list[tuple[str, str, str]]
 def render_anchor_walk(
     nodes: list[dict], edges: list[tuple[str, str, str]], query: str
 ):
-    """Render an L4-style anchor walk for a real chess-studio query."""
+    """Render an L4-style anchor walk for a real repository query."""
     import matplotlib.pyplot as plt
     import networkx as nx
     from matplotlib.lines import Line2D

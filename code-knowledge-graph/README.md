@@ -101,16 +101,12 @@ The article's two Django benchmark PNGs can be regenerated from the committed L4
 ```bash
 uv sync --extra viz
 uv run --extra viz python3 scripts/render_article_figures.py \
-  --db /tmp/codekg.sqlite3 \
-  --tasks examples/tasks.json \
-  --experiment /tmp/codekg-experiment.json \
   --django /path/to/graphify_verification_results_django_cache.json \
   --django-suite /path/to/graphify_verification_suite_summary.json \
-  --output-dir /path/to/blog/assets/2026/08 \
-  --query "cache control middleware"
+  --output-dir /path/to/blog/assets/2026/08
 ```
 
-The renderer writes six standalone PNGs: the full graph, file-layer hub neighborhood, anchor walk, aggregate keyword/PageRank comparison, Django hero-task improvements, and Django suite time-improvement spread. The output directory is expected to be the blog's `assets/2026/08` directory when regenerating the published figures.
+That Django-only invocation writes the two L4 benchmark charts. To additionally render repository and retrieval charts for any checkout, add `--db /tmp/codekg.sqlite3 --tasks examples/tasks.json --experiment /tmp/codekg-experiment.json --query "cache control middleware"`; the renderer then writes six standalone PNGs in total. The output directory is expected to be the blog's `assets/2026/08` directory when regenerating the published figures.
 
 ## LLM A/B Run
 
