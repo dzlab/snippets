@@ -9,6 +9,13 @@ description = "Dependency-free code knowledge graph scaffold."
 requires-python = ">=3.11"
 dependencies = []
 
+[project.optional-dependencies]
+viz = [
+    "matplotlib>=3.10",
+    "networkx>=3.6",
+    "scipy>=1.14",
+]
+
 [project.scripts]
 codekg = "codekg.cli:main"
 

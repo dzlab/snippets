@@ -84,7 +84,7 @@ target Git checkout
                                                         treatment: task + map
 ```
 
-The article will start with the real `chess-studio` repository graph, then show the file-level projection, compare lexical and graph rankings, and finally explain the paired evaluation. It will explain that the graph is a navigation hint: it can surface dependencies and historically coupled files that do not share the task vocabulary, but it does not guarantee that an agent will choose or edit them.
+The article will start with the real `chess-studio` repository graph, then show the file-level projection, compare lexical and graph rankings, and finally explain the paired evaluation. Its checked-in PNG figures will be generated with optional Matplotlib/NetworkX dependencies using the notebook's visual language; the core CLI remains dependency-free. It will explain that the graph is a navigation hint: it can surface dependencies and historically coupled files that do not share the task vocabulary, but it does not guarantee that an agent will choose or edit them.
 
 ## Testing and verification
 

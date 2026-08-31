@@ -33,14 +33,14 @@ Companion project files:
 
 Blog files:
 
-- Create `dzlab.github.io/_posts/2026-08-30-building-code-knowledge-graphs.md`: source-backed standalone article with checked-in SVG figures generated from the `chess-studio` graph and the Django benchmark data.
-- Create `dzlab.github.io/assets/2026/08/20260830-code-kg-file-graph.svg`: deterministic repository graph figure.
-- Create `dzlab.github.io/assets/2026/08/20260830-code-kg-retrieval.svg`: deterministic keyword-versus-PageRank comparison figure.
-- Create `dzlab.github.io/assets/2026/08/20260830-code-kg-django-workflow.svg`: deterministic Django workflow benchmark figure.
+- Create `dzlab.github.io/_posts/2026-08-30-building-code-knowledge-graphs.md`: source-backed standalone article with checked-in PNG figures generated from the `chess-studio` graph and the Django benchmark data.
+- Create `dzlab.github.io/assets/2026/08/20260830-code-kg-file-graph.png`: deterministic repository graph figure.
+- Create `dzlab.github.io/assets/2026/08/20260830-code-kg-retrieval.png`: deterministic keyword-versus-PageRank comparison figure.
+- Create `dzlab.github.io/assets/2026/08/20260830-code-kg-django-workflow.png`: deterministic Django workflow benchmark figure.
 
 Companion visualization support:
 
-- Create `code-knowledge-graph/scripts/render_article_figures.py`: dependency-free SVG renderer consuming a SQLite index, retrieval JSON, and Django benchmark JSON. It must not require the blog repository at runtime.
+- Create `code-knowledge-graph/scripts/render_article_figures.py`: optional Matplotlib/NetworkX PNG renderer consuming a SQLite index, retrieval JSON, and the two Django benchmark JSON inputs. It must not require the blog repository at runtime, and it must leave the core CLI dependency-free.
 - Modify `dzlab.github.io/README.md` only if the existing blog convention requires a post index entry; otherwise leave it untouched.
 
 ### Task 1: Scaffold the dependency-free project and data model
@@ -246,9 +246,9 @@ Then run `index`, `retrieve`, `map`, and `experiment` against a temporary copy o
 **Files:**
 - Create: `code-knowledge-graph/scripts/render_article_figures.py`
 - Create: `code-knowledge-graph/examples/chess_studio_tasks.json`
-- Create: `dzlab.github.io/assets/2026/08/20260830-code-kg-file-graph.svg`
-- Create: `dzlab.github.io/assets/2026/08/20260830-code-kg-retrieval.svg`
-- Create: `dzlab.github.io/assets/2026/08/20260830-code-kg-django-workflow.svg`
+- Create: `dzlab.github.io/assets/2026/08/20260830-code-kg-file-graph.png`
+- Create: `dzlab.github.io/assets/2026/08/20260830-code-kg-retrieval.png`
+- Create: `dzlab.github.io/assets/2026/08/20260830-code-kg-django-workflow.png`
 
 - [ ] **Step 1: Define real chess-studio localization tasks**
 
@@ -266,9 +266,9 @@ Use the same chess-studio task set and database to render side-by-side top-k ran
 
 Read the committed Django benchmark JSON and render the narrowly supported five-run hero-task result, with the neutral/negative suite context in the article prose. Do not label Django measurements as chess-studio results.
 
-- [ ] **Step 5: Verify generated SVG structure**
+- [ ] **Step 5: Verify generated PNG output**
 
-Check that all SVGs have valid `viewBox`, visible labels, non-empty content, and no external resource dependencies. Re-run the renderer from a fresh temporary chess-studio index before finalizing.
+Check that all PNGs have non-zero dimensions, visible labels, and no external resource dependencies. Re-run the renderer from a fresh temporary chess-studio index before finalizing.
 
 ### Task 7: Write, build, and verify the standalone blog post
 
@@ -311,7 +311,7 @@ Show the arbitrary-checkout `index`, `retrieve`, `map`, `experiment`, and option
 
 Use only numbers reproduced from the verified local companion run or clearly label course-study numbers as prior benchmark evidence. State that graph hints are not guaranteed improvements, that lexical anchoring can dominate, and that co-edit edges reflect historical coupling rather than semantic correctness. Cover incremental updates, language support, graph freshness, privacy, prompt size, and API cost.
 
-- [ ] **Step 6: Add and inspect the three SVG figures**
+- [ ] **Step 6: Add and inspect the three PNG figures**
 
 Place the repository graph after the graph model, the retrieval comparison in its dedicated PageRank section, and the Django workflow figure in the benchmark section. Use descriptive alt text, normal Markdown captions, and the blog's date-based `assets/2026/08/` convention.
 
