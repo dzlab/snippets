@@ -96,7 +96,7 @@ The output is plain JSON only. It does not invent labels, winners, or statistica
 
 ## Regenerate the article figures
 
-The benchmark renderer is repository-independent. It accepts any hero-task and suite-summary JSON that follows the L4-compatible result shape, so a new repository only requires running its experiment and passing the resulting files—not changing the renderer. Each PNG contains one chart. The renderer also accepts any SQLite graph and offline experiment when you want to generate repository and retrieval charts for another checkout. It follows the notebook's Matplotlib/NetworkX visual language and is kept optional so the core CLI remains dependency-free.
+The benchmark renderer is repository-independent. It accepts any hero-task and suite-summary JSON that follows the L4-compatible result shape, so a new repository only requires running its experiment and passing the resulting files—not changing the renderer. Each PNG contains one chart. The renderer accepts either a SQLite graph produced by `codekg index` or an exported graph JSON, plus an offline experiment when you want to generate repository and retrieval charts for another checkout. It follows the notebook's Matplotlib/NetworkX visual language and is kept optional so the core CLI remains dependency-free.
 
 ```bash
 uv sync --extra viz
@@ -109,6 +109,8 @@ uv run --extra viz python3 scripts/render_article_figures.py \
 ```
 
 The command writes two standalone benchmark charts. For another repository, use its own benchmark and suite-summary paths and change only the display options (or omit `--label` and `--task-prefix`). To additionally render repository and retrieval charts, add `--db /tmp/codekg.sqlite3 --tasks examples/tasks.json --experiment /tmp/codekg-experiment.json --query "cache control middleware"`; the renderer then writes six standalone PNGs in total. The output directory is expected to be the blog's `assets/2026/08` directory when regenerating the published figures.
+
+For a graph export, replace `--db /tmp/codekg.sqlite3` with `--graph-json /path/to/code-graph.json`. The graph visualization uses the notebook's visual language: squares are files, triangles are symbols, larger nodes are hubs, and colour distinguishes dependency-led from co-edit-led structure.
 
 The hero benchmark JSON must contain `aggregate.control` and `aggregate.treatment` records with the metrics used by the chart (`mean_recall`, token/tool-call counts, first-correct-edit tool calls, duration, and cost). The suite JSON must contain `per_task[].metrics.mean_duration_ms.pct_improvement` plus the pooled duration summary. These are the same fields emitted by the L4 coding-workflow harness.
 

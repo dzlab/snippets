@@ -2,8 +2,9 @@
 
 The core ``codekg`` CLI remains dependency-free. Install the optional figure
 dependencies first, for example ``uv run --with matplotlib --with networkx``.
-The renderer consumes the portable SQLite index, an explicit task file, and
-offline benchmark JSON; it never calls an API or embeds external data.
+The renderer consumes the portable SQLite index or an exported graph JSON,
+an explicit task file, and offline benchmark JSON; it never calls an API or
+embeds external data.
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ EDGE_KIND_MAP = {"imports": "import", "calls": "call"}
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", type=Path, help="SQLite graph for repository and anchor charts")
+    parser.add_argument("--graph-json", type=Path, help="exported code graph JSON for repository and anchor charts")
     parser.add_argument("--tasks", type=Path, help="Task JSON paired with --experiment")
     parser.add_argument("--experiment", type=Path, help="Offline retrieval experiment JSON")
     parser.add_argument("--benchmark", type=Path, help="hero-task benchmark JSON using the L4-compatible schema")
@@ -45,9 +47,11 @@ def main() -> int:
         parser.error("--tasks requires --experiment")
     if args.experiment and not args.tasks:
         parser.error("--experiment requires --tasks")
+    if args.db and args.graph_json:
+        parser.error("--db and --graph-json are alternative graph inputs")
     if bool(args.benchmark) != bool(args.suite):
         parser.error("--benchmark and --suite must be provided together")
-    if not any((args.db, args.experiment, args.benchmark)):
+    if not any((args.db, args.graph_json, args.experiment, args.benchmark)):
         parser.error("provide a graph, experiment, or benchmark input")
 
     import matplotlib
@@ -55,13 +59,16 @@ def main() -> int:
     matplotlib.use("Agg")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     figures = {}
-    if args.db:
-        connection = sqlite3.connect(args.db)
-        connection.row_factory = sqlite3.Row
-        try:
-            nodes, edges = load_graph(connection)
-        finally:
-            connection.close()
+    if args.db or args.graph_json:
+        if args.db:
+            connection = sqlite3.connect(args.db)
+            connection.row_factory = sqlite3.Row
+            try:
+                nodes, edges = load_graph(connection)
+            finally:
+                connection.close()
+        else:
+            nodes, edges = load_graph_json(args.graph_json)
         figures.update({
             "20260830-code-kg-full-graph.png": render_repository_graph(nodes, edges),
             "20260830-code-kg-file-layer.png": render_file_layer_graph(nodes, edges),
@@ -92,6 +99,25 @@ def load_graph(connection: sqlite3.Connection) -> tuple[list[dict], list[tuple[s
     edges = []
     for row in connection.execute("SELECT src, dst, kind FROM edges ORDER BY src, dst, kind"):
         edges.append((row[0], row[1], EDGE_KIND_MAP.get(row[2], row[2])))
+    return nodes, edges
+
+
+def load_graph_json(path: Path) -> tuple[list[dict], list[tuple[str, str, str]]]:
+    """Load the portable graph export used by the L4 notebook and codekg."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    nodes = []
+    for raw_node in payload["nodes"]:
+        node = dict(raw_node)
+        node_id = node["id"]
+        if node.get("kind") == "file":
+            node.setdefault("path", node_id.removeprefix("file:"))
+        node.setdefault("name", node.get("path", node_id))
+        node.setdefault("text", "")
+        nodes.append(node)
+    edges = [
+        (edge["src"], edge["dst"], EDGE_KIND_MAP.get(edge["kind"], edge["kind"]))
+        for edge in payload["edges"]
+    ]
     return nodes, edges
 
 
@@ -137,7 +163,6 @@ def render_repository_graph(nodes: list[dict], edges: list[tuple[str, str, str]]
     )
     ax.axis("off")
 
-    fig.suptitle("Repository graph rendered with the L4 NetworkX/Matplotlib style", fontsize=15, y=0.98)
     fig.tight_layout()
     return fig
 
