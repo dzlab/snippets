@@ -2,8 +2,9 @@
 
 The core ``codekg`` CLI remains dependency-free. Install the optional figure
 dependencies first, for example ``uv run --with matplotlib --with networkx``.
-The renderer consumes the portable SQLite index and an explicit task file; it
-never calls an API or embeds external data.
+The renderer consumes the portable SQLite index, an explicit task file, and the
+committed Django benchmark JSON used by L4; it never calls an API or embeds
+external data.
 """
 
 from __future__ import annotations
@@ -33,6 +34,8 @@ def main() -> int:
     parser.add_argument("--db", type=Path, required=True)
     parser.add_argument("--tasks", type=Path, required=True)
     parser.add_argument("--experiment", type=Path, required=True)
+    parser.add_argument("--django", type=Path, required=True)
+    parser.add_argument("--django-suite", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--query", default="PGN import worker")
     args = parser.parse_args()
@@ -49,6 +52,8 @@ def main() -> int:
 
     tasks = json.loads(args.tasks.read_text(encoding="utf-8"))
     experiment = json.loads(args.experiment.read_text(encoding="utf-8"))
+    django = json.loads(args.django.read_text(encoding="utf-8"))
+    django_suite = json.loads(args.django_suite.read_text(encoding="utf-8"))
     if len(tasks) != len(experiment.get("tasks", [])):
         raise ValueError("task file and experiment result contain different task counts")
 
@@ -58,7 +63,8 @@ def main() -> int:
         "20260830-code-kg-file-layer.png": render_file_layer_graph(nodes, edges),
         "20260830-code-kg-anchor-walk.png": render_anchor_walk(nodes, edges, args.query),
         "20260830-code-kg-retrieval-comparison.png": render_retrieval_comparison(experiment),
-        "20260830-code-kg-chess-studio-benchmark.png": render_chess_studio_benchmark(experiment),
+        "20260830-code-kg-django-hero.png": render_django_hero(django),
+        "20260830-code-kg-django-suite.png": render_django_suite(django_suite),
     }
     for filename, figure in figures.items():
         save_figure(figure, args.output_dir / filename)
@@ -228,40 +234,95 @@ def render_retrieval_comparison(experiment: dict):
     return fig
 
 
-def render_chess_studio_benchmark(experiment: dict):
-    """Render one task-level recall chart from the real repository experiment."""
+def render_django_hero(result: dict):
+    """Render the L4 Django hero-task improvement bars as one chart."""
     import matplotlib.pyplot as plt
-    import numpy as np
 
-    tasks = experiment.get("tasks", [])
-    labels = [f"task {index + 1}" for index in range(len(tasks))]
-    keyword = [task.get("lexical", {}).get("recall_at_5", 0.0) for task in tasks]
-    pagerank = [task.get("graph", {}).get("recall_at_5", 0.0) for task in tasks]
-    x = np.arange(len(labels))
-    width = 0.34
-    fig, ax = plt.subplots(figsize=(11, 7))
-    bars_keyword = ax.bar(x - width / 2, keyword, width, color="#0072B2", label="keyword")
-    bars_pagerank = ax.bar(x + width / 2, pagerank, width, color="#D55E00", label="PageRank")
-    for bars in (bars_keyword, bars_pagerank):
-        for bar in bars:
-            ax.text(
-                bar.get_x() + bar.get_width() / 2,
-                bar.get_height() + 0.025,
-                f"{bar.get_height():.2f}",
-                ha="center",
-                fontsize=9,
-            )
-    ax.set_xticks(x)
-    ax.set_xticklabels(labels)
-    ax.set_ylim(0, 1.15)
-    ax.set_ylabel("recall@5")
+    aggregate = result["aggregate"]
+    control, treatment = aggregate["control"], aggregate["treatment"]
+    rows = [
+        ("Gold\nrecall", "mean_recall", False),
+        ("Fewer\ntokens", "mean_total_tokens", True),
+        ("Fewer\ntool calls", "mean_tool_calls", True),
+        ("Faster to 1st\ncorrect edit", "mean_tool_calls_to_first_correct_edit", True),
+        ("Less total\ntime on task", "mean_duration_ms", True),
+        ("Lower\ncost", "mean_cost_usd", True),
+    ]
+    labels, values = [], []
+    for label, key, lower_better in rows:
+        change = (treatment[key] - control[key]) / control[key] * 100
+        labels.append(label)
+        values.append(-change if lower_better else change)
+
+    fig, ax = plt.subplots(figsize=(11, 6.5))
+    colors = ["#2e9e5b" if value >= 0 else "#c0392b" for value in values]
+    bars = ax.bar(range(len(labels)), values, color=colors)
+    ax.axhline(0, color="#333", lw=0.9)
+    ax.set_xticks(range(len(labels)))
+    ax.set_xticklabels(labels, fontsize=9)
+    ax.set_ylabel("improvement % (positive = structure map better)")
     ax.set_title(
-        "Chess Studio task-level retrieval at recall@5\n"
-        "three explicit queries with repository-relative gold files",
+        "Django cache-control workflow: graph structure map versus bare repository\n"
+        f"five-run hero task ({int(control['n'])}/arm)",
         fontsize=12,
     )
-    ax.legend(framealpha=0.9)
+    for bar, value in zip(bars, values):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            value + (1.5 if value >= 0 else -3.0),
+            f"{value:+.0f}%",
+            ha="center",
+            fontsize=9,
+            fontweight="bold",
+        )
     ax.grid(axis="y", alpha=0.25)
+    fig.tight_layout()
+    return fig
+
+
+def render_django_suite(suite: dict):
+    """Render the L4 per-task Django time-improvement spread as one chart."""
+    import matplotlib.pyplot as plt
+
+    rows = sorted(
+        suite.get("per_task", []),
+        key=lambda row: row.get("metrics", {}).get("mean_duration_ms", {}).get("pct_improvement", 0),
+    )
+    labels = [row["task"].replace("django_", "") for row in rows]
+    values = [row["metrics"]["mean_duration_ms"]["pct_improvement"] for row in rows]
+    colors = ["#c0392b" if value < 0 else "#d9a441" if value < 4 else "#2e9e5b" for value in values]
+    fig, ax = plt.subplots(figsize=(11, 7))
+    ax.barh(range(len(labels)), values, color=colors)
+    ax.axvline(0, color="#333", lw=0.9)
+    ax.set_yticks(range(len(labels)))
+    ax.set_yticklabels(labels, fontsize=9)
+    ax.set_xlabel("total-time improvement % (positive = graph faster)")
+    pooled = suite.get("pooled", {}).get("mean_duration_ms", {})
+    median = pooled.get("pooled_median_pct", pooled.get("pooled_mean_pct", 0))
+    mean = pooled.get("pooled_mean_pct", 0)
+    wins = suite.get("pooled", {}).get("mean_duration_ms", {}).get("wins", 0)
+    ax.axvline(median, color="#2e9e5b", lw=1.4, ls="--", alpha=0.9)
+    ax.text(
+        median,
+        len(labels) - 0.4,
+        f" median {median:+.1f}%",
+        color="#1d6e40",
+        fontsize=8,
+        fontweight="bold",
+        va="top",
+    )
+    for index, value in enumerate(values):
+        if value <= -20:
+            ax.text(value - 1.0, index, "gold files not clustered ", ha="right", va="center", fontsize=7, color="#7a2e24", style="italic")
+    annotated = any(value <= -20 for value in values)
+    lo, hi = min(values + [0]), max(values + [0])
+    ax.set_xlim(lo - (20 if annotated else 5), hi + 5)
+    ax.set_title(
+        "Django coding-workflow suite: graph structure map versus bare repository\n"
+        f"median {median:+.1f}% ({wins}/{len(labels)} tasks faster; mean {mean:+.1f}%)",
+        fontsize=12,
+    )
+    ax.grid(axis="x", alpha=0.25)
     fig.tight_layout()
     return fig
 
