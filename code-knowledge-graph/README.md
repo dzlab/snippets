@@ -96,17 +96,21 @@ The output is plain JSON only. It does not invent labels, winners, or statistica
 
 ## Regenerate the article figures
 
-The article's two Django benchmark PNGs can be regenerated from the committed L4 JSON files without an API call. Each PNG contains one chart. The renderer also accepts any SQLite graph and offline experiment when you want to generate repository and retrieval charts for another checkout. It follows the notebook's Matplotlib/NetworkX visual language and is kept optional so the core CLI remains dependency-free.
+The benchmark renderer is repository-independent. It accepts any hero-task and suite-summary JSON that follows the L4-compatible result shape, so a new repository only requires running its experiment and passing the resulting files—not changing the renderer. Each PNG contains one chart. The renderer also accepts any SQLite graph and offline experiment when you want to generate repository and retrieval charts for another checkout. It follows the notebook's Matplotlib/NetworkX visual language and is kept optional so the core CLI remains dependency-free.
 
 ```bash
 uv sync --extra viz
 uv run --extra viz python3 scripts/render_article_figures.py \
-  --django /path/to/graphify_verification_results_django_cache.json \
-  --django-suite /path/to/graphify_verification_suite_summary.json \
+  --benchmark /path/to/benchmark.json \
+  --suite /path/to/suite-summary.json \
+  --label "Django cache-control" \
+  --task-prefix django_ \
   --output-dir /path/to/blog/assets/2026/08
 ```
 
-That Django-only invocation writes the two L4 benchmark charts. To additionally render repository and retrieval charts for any checkout, add `--db /tmp/codekg.sqlite3 --tasks examples/tasks.json --experiment /tmp/codekg-experiment.json --query "cache control middleware"`; the renderer then writes six standalone PNGs in total. The output directory is expected to be the blog's `assets/2026/08` directory when regenerating the published figures.
+The command writes two standalone benchmark charts. For another repository, use its own benchmark and suite-summary paths and change only the display options (or omit `--label` and `--task-prefix`). To additionally render repository and retrieval charts, add `--db /tmp/codekg.sqlite3 --tasks examples/tasks.json --experiment /tmp/codekg-experiment.json --query "cache control middleware"`; the renderer then writes six standalone PNGs in total. The output directory is expected to be the blog's `assets/2026/08` directory when regenerating the published figures.
+
+The hero benchmark JSON must contain `aggregate.control` and `aggregate.treatment` records with the metrics used by the chart (`mean_recall`, token/tool-call counts, first-correct-edit tool calls, duration, and cost). The suite JSON must contain `per_task[].metrics.mean_duration_ms.pct_improvement` plus the pooled duration summary. These are the same fields emitted by the L4 coding-workflow harness.
 
 ## LLM A/B Run
 

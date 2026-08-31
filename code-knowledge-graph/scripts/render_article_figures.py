@@ -2,9 +2,8 @@
 
 The core ``codekg`` CLI remains dependency-free. Install the optional figure
 dependencies first, for example ``uv run --with matplotlib --with networkx``.
-The renderer consumes the portable SQLite index, an explicit task file, and the
-committed Django benchmark JSON used by L4; it never calls an API or embeds
-external data.
+The renderer consumes the portable SQLite index, an explicit task file, and
+offline benchmark JSON; it never calls an API or embeds external data.
 """
 
 from __future__ import annotations
@@ -34,8 +33,10 @@ def main() -> int:
     parser.add_argument("--db", type=Path, help="SQLite graph for repository and anchor charts")
     parser.add_argument("--tasks", type=Path, help="Task JSON paired with --experiment")
     parser.add_argument("--experiment", type=Path, help="Offline retrieval experiment JSON")
-    parser.add_argument("--django", type=Path, help="L4 Django hero-task benchmark JSON")
-    parser.add_argument("--django-suite", type=Path, help="L4 Django suite-summary JSON")
+    parser.add_argument("--benchmark", type=Path, help="hero-task benchmark JSON using the L4-compatible schema")
+    parser.add_argument("--suite", type=Path, help="per-task suite-summary JSON using the L4-compatible schema")
+    parser.add_argument("--label", default="Coding-workflow benchmark", help="label used in benchmark chart titles")
+    parser.add_argument("--task-prefix", default="", help="optional prefix to remove from suite task labels")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--query", default="cache control middleware")
     args = parser.parse_args()
@@ -44,10 +45,10 @@ def main() -> int:
         parser.error("--tasks requires --experiment")
     if args.experiment and not args.tasks:
         parser.error("--experiment requires --tasks")
-    if bool(args.django) != bool(args.django_suite):
-        parser.error("--django and --django-suite must be provided together")
-    if not any((args.db, args.experiment, args.django)):
-        parser.error("provide a graph, experiment, or Django benchmark input")
+    if bool(args.benchmark) != bool(args.suite):
+        parser.error("--benchmark and --suite must be provided together")
+    if not any((args.db, args.experiment, args.benchmark)):
+        parser.error("provide a graph, experiment, or benchmark input")
 
     import matplotlib
 
@@ -72,12 +73,12 @@ def main() -> int:
         if len(tasks) != len(experiment.get("tasks", [])):
             raise ValueError("task file and experiment result contain different task counts")
         figures["20260830-code-kg-retrieval-comparison.png"] = render_retrieval_comparison(experiment)
-    if args.django:
-        django = json.loads(args.django.read_text(encoding="utf-8"))
-        django_suite = json.loads(args.django_suite.read_text(encoding="utf-8"))
+    if args.benchmark:
+        benchmark = json.loads(args.benchmark.read_text(encoding="utf-8"))
+        suite = json.loads(args.suite.read_text(encoding="utf-8"))
         figures.update({
-            "20260830-code-kg-django-hero.png": render_django_hero(django),
-            "20260830-code-kg-django-suite.png": render_django_suite(django_suite),
+            "20260830-code-kg-benchmark-hero.png": render_benchmark_hero(benchmark, args.label),
+            "20260830-code-kg-benchmark-suite.png": render_benchmark_suite(suite, args.label, args.task_prefix),
         })
     for filename, figure in figures.items():
         save_figure(figure, args.output_dir / filename)
@@ -247,8 +248,8 @@ def render_retrieval_comparison(experiment: dict):
     return fig
 
 
-def render_django_hero(result: dict):
-    """Render the L4 Django hero-task improvement bars as one chart."""
+def render_benchmark_hero(result: dict, label: str):
+    """Render an L4-compatible hero-task improvement chart."""
     import matplotlib.pyplot as plt
 
     aggregate = result["aggregate"]
@@ -262,9 +263,9 @@ def render_django_hero(result: dict):
         ("Lower\ncost", "mean_cost_usd", True),
     ]
     labels, values = [], []
-    for label, key, lower_better in rows:
+    for metric_label, key, lower_better in rows:
         change = (treatment[key] - control[key]) / control[key] * 100
-        labels.append(label)
+        labels.append(metric_label)
         values.append(-change if lower_better else change)
 
     fig, ax = plt.subplots(figsize=(11, 6.5))
@@ -275,8 +276,8 @@ def render_django_hero(result: dict):
     ax.set_xticklabels(labels, fontsize=9)
     ax.set_ylabel("improvement % (positive = structure map better)")
     ax.set_title(
-        "Django cache-control workflow: graph structure map versus bare repository\n"
-        f"five-run hero task ({int(control['n'])}/arm)",
+        f"{label}: graph structure map versus bare repository\n"
+        f"hero task ({int(control['n'])}/arm)",
         fontsize=12,
     )
     for bar, value in zip(bars, values):
@@ -293,15 +294,15 @@ def render_django_hero(result: dict):
     return fig
 
 
-def render_django_suite(suite: dict):
-    """Render the L4 per-task Django time-improvement spread as one chart."""
+def render_benchmark_suite(suite: dict, label: str, task_prefix: str = ""):
+    """Render an L4-compatible per-task time-improvement chart."""
     import matplotlib.pyplot as plt
 
     rows = sorted(
         suite.get("per_task", []),
         key=lambda row: row.get("metrics", {}).get("mean_duration_ms", {}).get("pct_improvement", 0),
     )
-    labels = [row["task"].replace("django_", "") for row in rows]
+    labels = [_task_label(row["task"], task_prefix) for row in rows]
     values = [row["metrics"]["mean_duration_ms"]["pct_improvement"] for row in rows]
     colors = ["#c0392b" if value < 0 else "#d9a441" if value < 4 else "#2e9e5b" for value in values]
     fig, ax = plt.subplots(figsize=(11, 7))
@@ -324,20 +325,22 @@ def render_django_suite(suite: dict):
         fontweight="bold",
         va="top",
     )
-    for index, value in enumerate(values):
-        if value <= -20:
-            ax.text(value - 1.0, index, "gold files not clustered ", ha="right", va="center", fontsize=7, color="#7a2e24", style="italic")
-    annotated = any(value <= -20 for value in values)
     lo, hi = min(values + [0]), max(values + [0])
-    ax.set_xlim(lo - (20 if annotated else 5), hi + 5)
+    ax.set_xlim(lo - 5, hi + 5)
     ax.set_title(
-        "Django coding-workflow suite: graph structure map versus bare repository\n"
+        f"{label} suite: graph structure map versus bare repository\n"
         f"median {median:+.1f}% ({wins}/{len(labels)} tasks faster; mean {mean:+.1f}%)",
         fontsize=12,
     )
     ax.grid(axis="x", alpha=0.25)
     fig.tight_layout()
     return fig
+
+
+def _task_label(task: str, task_prefix: str) -> str:
+    if task_prefix and task.startswith(task_prefix):
+        task = task[len(task_prefix):]
+    return task.replace("_", " ")
 
 
 def _collapsed_graph(nodes, edges):
