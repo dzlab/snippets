@@ -5,7 +5,7 @@ description = "A collection of PostgreSQL queries for database monitoring and pe
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "mcp>=1.11.0",
+    "mcp>=1.28.1",
     "nest-asyncio>=1.6.0",
     "openai>=1.95.1",
     "psycopg2-binary>=2.9.10",
